@@ -1,0 +1,6 @@
+nainstaluj si node js
+https://nodejs.org/en/download
+ked sa to nainstaluje tak treba pnpm nainstalovat. myslim ze som to dal do cmd  ---  npm install pnpm   --- xDD
+potom nastelovat quasar prikazom  -   pnpm add -g @quasar/cli@lates
+Ked to budes mat otvor tento projekt znovu. opyta sa ta to ci chces nainstalovat addony kliknes ano a ked sa nainstaluju ho este raz restartnes a your good to go. :D                                                              dufam (-_-) 
+
