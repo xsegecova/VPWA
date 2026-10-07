@@ -11,15 +11,52 @@
 // It's highly recommended to change the default colors
 // to match your app's branding.
 // Tip: Use the "Theme Builder" on Quasar's documentation website.
+// Brand
+$primary:   #a3d977; // Phosphor green
+$secondary: #789582; // Weathered sage
+$accent:    #d1a45d; // Dusty amber
 
-$primary: #1976d2;
-$secondary: #26a69a;
-$accent: #9c27b0;
+// Quasar dark surfaces
+$dark:      #1e2720;
+$dark-page: #101411;
 
-$dark: #1d1d1d;
-$dark-page: #121212;
+// Status
+$positive: #83c990;
+$negative: #e08076;
+$info:     #85bac9;
+$warning:  #dfb968;
 
-$positive: #21ba45;
-$negative: #c10015;
-$info: #31ccec;
-$warning: #f2c037;
+// Backgrounds
+$bg-page:    $dark-page;
+$bg-sidebar: #171d18;
+$bg-card:    $dark;
+$bg-raised:  #253027;
+$bg-hover:   #2c392f;
+$bg-active:  #35482d;
+$bg-input:   #141b16;
+
+//borders
+$brd-main: #21321f;
+
+// Text
+$text-main:     #e6ebdf;
+$text-secondary: #aab7a5;
+$text-muted:    #869680;
+$text-disabled: #62705e;
+$text-on-brand: #142010;
+
+// Borders and focus
+$border-subtle: #2b382e;
+$border-strong: #465b49;
+$focus-ring:    $primary;
+
+// Terminal
+$terminal-bg:      #0b100c;
+$terminal-text:    #b7e58a;
+$terminal-prompt:  #d1a45d;
+$terminal-comment: #869680;
+$terminal-error:   $negative;
+
+// Chat
+$message-incoming: #253027;
+$message-outgoing: #304329;

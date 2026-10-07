@@ -1,1 +1,46 @@
 // app global css
+body.body--dark {
+  background: $bg-page;
+  color: $text-main;
+}
+
+body.body--light {
+  background: $bg-page;
+  color: $text-main;
+}
+
+ 
+.logo{
+    filter: drop-shadow(0 0 8px #a3d977);
+    animation: ease-in;
+}
+
+.chat-sidebar {
+  background: $bg-sidebar;
+  border-right: 1px solid $border-subtle;
+}
+
+.chat-card {
+  background: $bg-card;
+  color: $text-main;
+  border: 1px solid $border-subtle;
+  border-radius: 12px;
+}
+
+.text-muted {
+  color: $text-muted;
+}
+
+.terminal {
+  background: $terminal-bg;
+  color: $terminal-text;
+  border: 1px solid $border-strong;
+  font-family: monospace;
+}
+
+.brand-button {
+  background: $primary;
+  color: $text-on-brand;
+}
+
+ 
