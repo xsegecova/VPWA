@@ -9,12 +9,6 @@ body.body--light {
   color: $text-main;
 }
 
- 
-.logo{
-    filter: drop-shadow(0 0 8px #a3d977);
-    animation: ease-in;
-}
-
 .chat-sidebar {
   background: $bg-sidebar;
   border-right: 1px solid $border-subtle;
@@ -27,8 +21,8 @@ body.body--light {
   border-radius: 12px;
 }
 
-.text-muted {
-  color: $text-muted;
+.text-main {
+  color: $text-main;
 }
 
 .terminal {
@@ -43,4 +37,9 @@ body.body--light {
   color: $text-on-brand;
 }
 
+.login-card{
+  background: $bg-card;
+  border-style:solid ;
+  border-color: $brd-main;
+}
  

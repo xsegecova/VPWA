@@ -11,7 +11,7 @@
 // It's highly recommended to change the default colors
 // to match your app's branding.
 // Tip: Use the "Theme Builder" on Quasar's documentation website.
-// Brand
+// Brand - chat generated color pallete from reference
 $primary:   #a3d977; // Phosphor green
 $secondary: #789582; // Weathered sage
 $accent:    #d1a45d; // Dusty amber
@@ -60,3 +60,11 @@ $terminal-error:   $negative;
 // Chat
 $message-incoming: #253027;
 $message-outgoing: #304329;
+
+
+
+// new colors
+
+$bg-gradient-1: $dark;
+$bg-gradient-2: #000000;
+$bg-gradient-3: #000000;
