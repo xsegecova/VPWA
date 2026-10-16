@@ -7,14 +7,15 @@
 
     <q-separator />
 
-    <q-form @submit="onSubmit" @reset="onReset"  v-if="state != 'start'" class="text-main q-mx-md q-mt-md">
+    <q-form @submit="submit" @reset="reset"  v-if="state != 'start'" class="text-main q-mx-lg q-mt-md">
       <q-input
+        class="text-main"
         v-if="state === 'register'"
         filled
         v-model="name"
         label="Name *"
         lazy-rules
-        :rules="[val => (val && val.length > 0) || 'Please type something']"
+        :rules="[val => (val && val.length > 0) || 'Please enter your name']"
       />
       <q-input
         v-if="state === 'register'"
@@ -22,7 +23,7 @@
         v-model="surname"
         label="Surname *"
         lazy-rules
-        :rules="[val => (val && val.length > 0) || 'Please type something']"
+        :rules="[val => (val && val.length > 0) || 'Please enter your surname']"
       />
        <q-input
         v-if="state ===  'register'"
@@ -30,25 +31,51 @@
         v-model="nickname"
         label="Nickname *"
         lazy-rules
-        :rules="[val => (val && val.length > 0) || 'Please type something']"
+        :rules="[val => (val && val.length > 5) || 'Nickneme must be at least 5 characters']"
       />
       <q-input
         filled
+        type="email"
         v-model="email"
         label="Email *"
-        lazy-rules
-        :rules="[val => (val && val.length > 0) || 'Please type something']"
+        lazy-rules="ondemand"
+        :rules="[val => (val && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) || 'Enter a valid email address']"
       />
       <q-input
         filled
+        type="password"
+        v-if="state ===  'login'"
         v-model="password"
         label="Password *"
         lazy-rules
-        :rules="[val => (val && val.length > 0) || 'Please type something']"
+      />
+      <q-input
+        filled
+        type="password"
+        v-if="state ===  'register'"
+        v-model="password"
+        label="Password *"
+        lazy-rules
+        :rules="[
+          val => (val && val.length >= 8) || 'Minimum 8 characters',
+            val => /[A-Z]/.test(val) || 'At least 1 uppercase letter',
+            val => /[a-z]/.test(val) || 'At least 1 lowercase letter',
+            val => /[0-9]/.test(val) || 'At least 1 number'
+        ]"
+      />
+      <q-input
+        filled
+        v-if="state ===  'register'"
+        type="password"
+        v-model="password2"
+        label="Repeat password *"
+        lazy-rules="ondemand"
+        :rules="[val => (val && val === password) || 'Passwords do not match']"
       />
 
-      <q-btn flat class="text-main" @click="state = 'start'">Back</q-btn>
-      <q-btn flat class="text-main right" @click="submit()">Submit</q-btn>
+
+      <q-btn flat class="text-muted q-mt-md" type="reset">Back</q-btn>
+      <q-btn flat class="text-main q-mt-md float-right" type="submit">Submit</q-btn>
 
     </q-form>
 
@@ -61,7 +88,8 @@
 </template>
 
 <script setup>
-import { ref,computed } from 'vue'
+import { ref,computed} from 'vue'
+import { useRouter } from 'vue-router'
 
   const state = ref("start")
 
@@ -70,6 +98,9 @@ import { ref,computed } from 'vue'
   const nickname = ref("")
   const email = ref("")
   const password = ref("")
+  const password2 = ref("")
+
+  const router = useRouter()
 
   const title = computed(() =>{
     if (state.value === 'start') return 'Serpent'
@@ -79,7 +110,28 @@ import { ref,computed } from 'vue'
 
   function submit()
   {
-    // login code
+    if (state.value === 'register') {
+    console.log('Registration successful')
+    reset()
+    state.value = 'login'
+  }
+
+  else if (state.value === 'login') {
+    console.log('Login successful')
+    router.push('/dashboard')
+  }
+  }
+
+  function reset()
+  {
+    name.value=""
+    surname.value=""
+    nickname.value=""
+    email.value=""
+    password.value=""
+    password2.value=""
+
+    state.value = 'start'
   }
 </script>
 

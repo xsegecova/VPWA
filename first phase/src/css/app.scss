@@ -22,7 +22,13 @@ body.body--light {
 }
 
 .text-main {
-  color: $text-main;
+  .q-field__native,
+  .q-field__label {
+    color: $text-secondary;
+  }
+}
+.text-muted {
+    color: $text-muted;
 }
 
 .terminal {
