@@ -11,7 +11,7 @@ const routes = [
     path: '/',
     component: () => import('@/layouts/AppLayout.vue'),
     children: [
-      { path: 'dashboard', component: () => import('@/pages/AIpage.vue') },
+      { path: 'dashboard', component: () => import('@/pages/Chat-page.vue') },
     ],
   },
 
