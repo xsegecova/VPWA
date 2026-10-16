@@ -7,9 +7,8 @@
 
     <q-separator />
 
-    <q-form @submit="submit" @reset="reset"  v-if="state != 'start'" class="text-main q-mx-lg q-mt-md">
+    <q-form @submit="submit" @reset="reset"  v-if="state != 'start'" class="text-input-main q-mx-lg q-mt-md">
       <q-input
-        class="text-main"
         v-if="state === 'register'"
         filled
         v-model="name"

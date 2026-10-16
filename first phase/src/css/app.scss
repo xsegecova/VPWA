@@ -21,15 +21,21 @@ body.body--light {
   border-radius: 12px;
 }
 
-.text-main {
+.text-input-main {
   .q-field__native,
   .q-field__label {
     color: $text-secondary;
   }
 }
+
+.text-main {
+   color: $text-main;
+   
+}
 .text-muted {
     color: $text-muted;
 }
+
 
 .terminal {
   background: $terminal-bg;
