@@ -1,6 +1,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import {
   createChannel,
+  cancelChannel,
   getChannelsForUser,
   getMessages,
   sendMessage as saveMessage,
@@ -77,6 +78,7 @@ function sendMessage() {
     const channelName = parts[1]
     const visibility = parts[2]
 
+
     if (!channelName || (visibility && visibility !== 'private')) return
 
     const owner = sessionStorage.getItem('serpent-current-user')
@@ -90,6 +92,11 @@ function sendMessage() {
     } catch (error) {
       console.error('Could not create channel', error)
     }
+    return
+  }
+
+  if (commandName === '/cancel') {
+    cancelActiveChannel()
     return
   }
 
@@ -113,6 +120,34 @@ onMounted(() => {
   refreshChannels()
 })
 
+const activeChannel = computed(() =>
+  channels.value.find(channel =>
+    channel.name === activeChannelName.value
+  ) ?? null
+)
+
+const isChannelAdmin = computed(() => {
+  const nickname = sessionStorage.getItem('serpent-current-user')
+  return !!nickname && activeChannel.value?.owner === nickname
+})
+
+function cancelActiveChannel(): boolean {
+  const nickname = sessionStorage.getItem('serpent-current-user')
+  const channelName = activeChannelName.value
+
+  if (!nickname || !channelName) return false
+
+  try {
+    cancelChannel(channelName, nickname)
+    refreshChannels()
+    text.value = ''
+    return true
+  } catch (error) {
+    console.error('Nepodarilo sa opustiť alebo zrušiť kanál', error)
+    return false
+  }
+}
+
 export function useChat() {
   return {
     channels,
@@ -124,6 +159,9 @@ export function useChat() {
     filteredCommands,
     channelMessages: messages,
     activeChannelName,
+    activeChannel,
+    cancelActiveChannel,
+    isChannelAdmin,
     openChannel: (name: string) => {
       activeChannelName.value = name
     }
