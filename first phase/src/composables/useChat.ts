@@ -25,6 +25,7 @@ let loadedUser = currentUser
 const channels = ref<Channel[]>(currentUser ? getChannelsForUser(currentUser) : [])
 const activeChannelName = ref<string | null>(null)
 const invites = ref<Invite[]>([])
+const showChannelInfo = ref(false)
 
 function getLatestMessageTime(channel: Channel): number {
   const latestMessage = channel.messages[channel.messages.length - 1]
@@ -219,6 +220,14 @@ function sendMessage() {
     return
   }
 
+  if (commandName === '/list') {
+  if (!nickname || !activeChannel.value) return
+
+  showChannelInfo.value = true
+  text.value = ''
+  return
+  }
+
   const channelName = activeChannelName.value
   const fromUser = sessionStorage.getItem('serpent-current-user')
 
@@ -277,7 +286,10 @@ function cancelActiveChannel(): boolean {
 }
 
 export function useChat() {
-  watch(activeChannelName, loadMessages, { immediate: true })
+  watch(activeChannelName, () => {
+  showChannelInfo.value = false
+  loadMessages()
+  }, { immediate: true })
 
   onMounted(() => {
     refreshChat()
@@ -305,6 +317,7 @@ export function useChat() {
     activeChannel,
     cancelActiveChannel,
     isChannelAdmin,
+    showChannelInfo,
     acceptInvite: (invite: Invite) => {
       const nickname = sessionStorage.getItem('serpent-current-user')
       if (!nickname) return

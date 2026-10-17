@@ -12,8 +12,9 @@
         icon="settings"
         @click="showChannelInfo = true "
       >
-      <q-menu>
-        <q-dialog v-model="showChannelInfo">
+  </q-btn>
+</q-toolbar>
+<q-dialog v-model="showChannelInfo">
           <q-card
             v-if="activeChannel"
             dark
@@ -57,9 +58,6 @@
       </q-card-actions>
         </q-card>
       </q-dialog>
-      </q-menu>
-  </q-btn>
-</q-toolbar>
 
     <div
       v-for="(message, index) in channelMessages"
@@ -74,11 +72,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useChat } from '@/composables/useChat'
 
-const { channelMessages, activeChannelName, activeChannel,cancelActiveChannel,isChannelAdmin, } = useChat()
-const showChannelInfo = ref(false)
+const { channelMessages, activeChannelName, activeChannel,cancelActiveChannel,isChannelAdmin,showChannelInfo } = useChat()
 
 function confirmCancelChannel() {
   if (cancelActiveChannel()) {
