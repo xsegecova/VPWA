@@ -1,22 +1,24 @@
 <template>
   <q-page class="q-pa-md">
+    <div class="text-h6 q-mb-md">
+      {{ activeChannelName || 'Vyber kanál' }}
+    </div>
 
     <div
-    v-for = "(message,index ) in messages"
-    :key = "index"
-    class="message-wrapper"
+      v-for="(message, index) in channelMessages"
+      :key="index"
+      class="message-wrapper"
     >
-      <div class= "message-name"> {{ message.name }}</div>
-      <div class= "user-message"> {{ message.text }}</div>
+      <div class="message-name">{{ message.name }}</div>
+      <div class="user-message">{{ message.text }}</div>
     </div>
   </q-page>
 </template>
 
 <script setup>
-import {useChat} from '@/composables/useChat'
+import { useChat } from '@/composables/useChat'
 
-const { messages } = useChat()
-
+const { channelMessages, activeChannelName } = useChat()
 </script>
 
 <style scoped>

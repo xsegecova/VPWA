@@ -30,11 +30,63 @@
       <!-- drawer content -->
       <div class="row justify-between">
       <div class="q-ml-md q-my-sm text-h5 text-main">Chats</div>
-      <q-btn class="right" >+</q-btn>
+      <q-btn @click="showCreateChannel = true" class="right" >+ </q-btn>
       </div>
 
       <q-separator size="3px" />
+
+      <q-list>
+        <q-item
+          v-for="channel in channels"
+          :key="channel.name"
+          clickable
+          :active="activeChannelName === channel.name"
+          @click="openChannel(channel.name)"
+        >
+          <q-item-section>
+            {{ channel.name }}
+          </q-item-section>
+
+          <q-item-section side>
+            <q-badge
+              v-if="channel.status === 'private'"
+              label="private"
+            />
+          </q-item-section>
+        </q-item>
+      </q-list>
     </q-drawer>
+    <q-dialog v-model="showCreateChannel">
+      <q-card dark style="min-width: 300px">
+        <q-card-section>
+          <div class="text-h6">Vytvoriť kanál</div>
+        </q-card-section>
+
+        <q-card-section>
+          <q-input
+            v-model="newChannelName"
+            label="Názov kanála"
+            dark
+          />
+
+          <q-select
+            v-model="newChannelStatus"
+            :options="['public', 'private']"
+            label="Viditeľnosť"
+            dark
+          />
+      </q-card-section>
+
+      <q-card-actions align="right">
+        <q-btn flat label="Zavrieť" v-close-popup />
+
+        <q-btn
+          label="Vytvoriť"
+          @click="confirmCreateChannel"
+        />
+      </q-card-actions>
+    </q-card>
+  </q-dialog>
 
     <q-page-container>
       <router-view />
@@ -87,8 +139,16 @@
 </template>
 
 <script setup>
+
 import { ref,watch } from 'vue'
 import { useChat} from '@/composables/useChat'
+import { useChannels } from '@/composables/createChannels'
+
+const {channels,createChannels,activeChannelName,openChannel} = useChannels()
+const showCreateChannel = ref(false)
+const newChannelName = ref('')
+const newChannelStatus = ref('public')
+
 
 const leftDrawerOpen = ref(false)
 function toggleLeftDrawer () {
@@ -124,4 +184,16 @@ function handleEnter() {
   sendMessage() //inak piseme spravy
 }
 
+function confirmCreateChannel() {
+  const created = createChannels(
+    newChannelName.value,
+    newChannelStatus.value
+  )
+
+  if (created) {
+    showCreateChannel.value = false
+    newChannelName.value = ''
+    newChannelStatus.value = 'public'
+  }
+}
 </script>
