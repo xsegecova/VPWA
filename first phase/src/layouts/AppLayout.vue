@@ -43,9 +43,9 @@
     <q-footer bordered class="terminal text-main">
       <q-toolbar>
         <q-toolbar-title>
-          <q-input class="text-input-main" v-model="text"/>
+          <q-input class="text-input-main" v-model="text" placeholder="Type here" @keyup.enter="sendMessage"/>
         </q-toolbar-title>
-        <q-btn>Send</q-btn>
+        <q-btn @click="sendMessage">Send</q-btn>
       </q-toolbar>
     </q-footer>
   </q-layout>
@@ -53,6 +53,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useChat} from '@/composables/useChat'
 
 const leftDrawerOpen = ref(false)
 function toggleLeftDrawer () {
@@ -60,6 +61,6 @@ function toggleLeftDrawer () {
 }
 
 const status = ref("Online")
-const text = ref("Type here...")
+const { text, sendMessage} = useChat()
 
 </script>

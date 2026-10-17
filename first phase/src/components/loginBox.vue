@@ -30,7 +30,7 @@
         v-model="nickname"
         label="Nickname *"
         lazy-rules
-        :rules="[val => (val && val.length > 5) || 'Nickneme must be at least 5 characters']"
+        :rules="[val => (val && val.length > 5) || 'Nickname must be at least 5 characters']"
       />
       <q-input
         filled
@@ -110,7 +110,10 @@ import { useRouter } from 'vue-router'
   function submit()
   {
     if (state.value === 'register') {
+    localStorage.setItem('serpent-nickname', nickname.value)
+
     console.log('Registration successful')
+
     reset()
     state.value = 'login'
   }
