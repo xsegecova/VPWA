@@ -2,8 +2,8 @@
 import {ref} from 'vue'
 
 const text = ref('')
-const messages = ref([])
-
+// typescript change
+const messages = ref<{ name: string | null; text: string }[]>([])
 
 
 function sendMessage() {
