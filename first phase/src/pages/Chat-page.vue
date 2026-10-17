@@ -9,13 +9,13 @@
       :key="index"
       class="message-wrapper"
     >
-      <div class="message-name">{{ message.name }}</div>
+      <div class="message-name">{{ message.fromUser }}</div>
       <div class="user-message">{{ message.text }}</div>
     </div>
   </q-page>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { useChat } from '@/composables/useChat'
 
 const { channelMessages, activeChannelName } = useChat()

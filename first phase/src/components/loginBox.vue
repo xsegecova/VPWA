@@ -90,6 +90,7 @@
 <script setup lang="ts">
 import { ref,computed} from 'vue'
 import { useRouter } from 'vue-router'
+import { checkUser, createUser } from '../composables/tempBackend'
 
   // database entries
   const name = ref("")
@@ -112,58 +113,34 @@ import { useRouter } from 'vue-router'
   // register or login  - needs to be reworked in 2. version
   function submit() {
   if (state.value === 'register') {
-    const users = JSON.parse(
-      localStorage.getItem('serpent-users') || '[]'
-    )
+    const result = createUser({
+      nickname: nickname.value.trim(),
+      name: name.value.trim(),
+      surname: surname.value.trim(),
+      email: email.value.trim().toLowerCase(),
+      password: password.value
+    })
 
-    const nicknameExists = users.some(
-      (user: { nickname: string }) =>
-        user.nickname.toLowerCase() === nickname.value.trim().toLowerCase()
-    )
-
-    const emailExists = users.some(
-      (user: { email: string }) =>
-        user.email.toLowerCase() === email.value.trim().toLowerCase()
-    )
-
-    if (nicknameExists) {
-      // need to conect this with ui
-      error.value = "This nickname is already taken"
-      console.log('This nickname is already taken')
-      return
-    }
-
-    if (emailExists) {
-      // need to conect this with ui
+    if (result === 1) {
       error.value = "This email is already taken"
       console.log('This email is already taken')
       return
     }
 
-    const newUser = {
-      nickname: nickname.value.trim(),
-      name: name.value.trim(),
-      surname: surname.value.trim(),
-      email: email.value.trim(),
-      password: password.value,
-      status: 0 // will automatically set to 0 after 1 minute on server
+    if (result === 2) {
+      error.value = "This nickname is already taken"
+      console.log('This nickname is already taken')
+      return
     }
-
-    users.push(newUser)
 
     console.log('Registration successful')
     reset()
     state.value = 'login'
   }
   else if (state.value === 'login') {
-    const users = JSON.parse(
-      localStorage.getItem('serpent-users') || '[]'
-    )
-
-    const user = users.find(
-      (user: { email: string; password: string }) =>
-        user.email === email.value.trim().toLowerCase() &&
-        user.password === password.value
+    const user = checkUser(
+      email.value.trim().toLowerCase(),
+      password.value
     )
 
     if (user) {
@@ -192,4 +169,3 @@ import { useRouter } from 'vue-router'
     state.value = 'start'
   }
 </script>
-

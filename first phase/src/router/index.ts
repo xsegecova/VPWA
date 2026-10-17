@@ -34,5 +34,21 @@ export default defineRouter((/* { store, ssrContext } */) => {
     history: createHistory(import.meta.env.QUASAR_VUE_ROUTER_BASE),
   })
 
+  Router.beforeEach((to) => {
+    if (to.path === '/') {
+      sessionStorage.removeItem('serpent-current-user')
+      return true
+    }
+
+    if (
+      to.matched.some(record => record.meta.requiresAuth) &&
+      !sessionStorage.getItem('serpent-current-user')
+    ) {
+      return '/'
+    }
+
+    return true
+  })
+
   return Router
 })

@@ -10,6 +10,7 @@ const routes = [
   {
     path: '/',
     component: () => import('@/layouts/AppLayout.vue'),
+    meta: { requiresAuth: true },
     children: [
       { path: 'dashboard', component: () => import('@/pages/Chat-page.vue') },
     ],

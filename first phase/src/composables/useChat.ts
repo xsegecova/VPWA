@@ -1,100 +1,131 @@
-import {ref,computed} from 'vue'
-import { useChannels } from './createChannels'
+import { computed, onMounted, ref, watch } from 'vue'
+import {
+  createChannel,
+  getChannelsForUser,
+  getMessages,
+  sendMessage as saveMessage,
+  type Channel
+} from './tempBackend'
 
 const text = ref('')
-const messages = ref<{
-  name: string | null
-  text: string
-  channelName: string
-}[]>([])
-
+const messages = ref<ReturnType<typeof getMessages>>([])
 const commandIndex = ref(0)
-const savedMessages = localStorage.getItem('serpent-messages') //nacitanie predoslych sprav
-const { createChannels, activeChannelName } = useChannels()
+const currentUser = sessionStorage.getItem('serpent-current-user')
+let loadedUser = currentUser
+const channels = ref<Channel[]>(
+  currentUser ? getChannelsForUser(currentUser) : []
+)
+const activeChannelName = ref<string | null>(null)
 
-type Commands = {
+function refreshChannels() {
+  const nickname = sessionStorage.getItem('serpent-current-user')
+  if (nickname !== loadedUser) {
+    activeChannelName.value = null
+    messages.value = []
+    loadedUser = nickname
+  }
+
+  channels.value = nickname ? getChannelsForUser(nickname) : []
+
+  if (
+    activeChannelName.value &&
+    !channels.value.some(channel => channel.name === activeChannelName.value)
+  ) {
+    activeChannelName.value = null
+    messages.value = []
+  }
+}
+
+type Command = {
   name: string
   syntax: string
 }
 
-const command: Commands[] = [
-  { name: '/join', syntax: '/join {channelName} [private]' }, //private je volitelny paramter :D
+const commands: Command[] = [
+  { name: '/join', syntax: '/join {channelName} [private]' },
   { name: '/invite', syntax: '/invite {nickName}' },
   { name: '/revoke', syntax: '/revoke {nickName}' },
   { name: '/kick', syntax: '/kick {nickName}' },
   { name: '/quit', syntax: '/quit' },
-  { name: '/cancel', syntax:'/cancel'},
-  { name: '/list', syntax: '/list'},
-  { name: '@', syntax:'@{nickName}'}
+  { name: '/cancel', syntax: '/cancel' },
+  { name: '/list', syntax: '/list' },
+  { name: '@', syntax: '@{nickName}' }
 ]
 
 const filteredCommands = computed(() => {
   if (!text.value.startsWith('/')) return []
 
-  return command.filter(command =>
-    command.name.startsWith(text.value)
-  )
+  return commands.filter(command => command.name.startsWith(text.value))
 })
 
-function sendMessage() {
-  const message = text.value
-  if (message.trim() === '') return
-
-  const parts = message.trim().split(/\s+/)
-  const commandName = parts[0]
-  const channelName = parts[1]
-  const visibility = parts[2]
-
-  if (commandName === '/join') {
-    if (!channelName) return
-    if (visibility && visibility !== 'private') return
-
-    const status = visibility === 'private' ? 'private' : 'public'
-    const created = createChannels(channelName, status)
-
-    if (created) {
-      text.value = ''
-    }
-
+function loadMessages() {
+  const nickname = sessionStorage.getItem('serpent-current-user')
+  if (!activeChannelName.value || !nickname) {
+    messages.value = []
     return
   }
 
-  const currentChannelName = activeChannelName.value
-  if (!currentChannelName) return
-
-  messages.value.push({
-    name: sessionStorage.getItem('serpent-current-user'),
-    text: message,
-    channelName: currentChannelName
-  })
-
-  localStorage.setItem(
-    'serpent-messages',
-    JSON.stringify(messages.value)
-  )
-
-  text.value = ''
+  messages.value = getMessages(activeChannelName.value, nickname)
 }
 
+function sendMessage() {
+  const messageText = text.value.trim()
+  const parts = messageText.split(/\s+/)
+  const commandName = parts[0]
 
-if (savedMessages !== null) {
-  messages.value = JSON.parse(savedMessages)
+  if (commandName === '/join') {
+    const channelName = parts[1]
+    const visibility = parts[2]
+
+    if (!channelName || (visibility && visibility !== 'private')) return
+
+    const owner = sessionStorage.getItem('serpent-current-user')
+    if (!owner) return
+
+    try {
+      createChannel(owner, channelName, visibility === 'private')
+      channels.value = getChannelsForUser(owner)
+      activeChannelName.value = channelName
+      text.value = ''
+    } catch (error) {
+      console.error('Could not create channel', error)
+    }
+    return
+  }
+
+  const channelName = activeChannelName.value
+  const fromUser = sessionStorage.getItem('serpent-current-user')
+
+  if (!messageText || !channelName || !fromUser) return
+
+  try {
+    saveMessage(channelName, fromUser, messageText)
+    loadMessages()
+    text.value = ''
+  } catch (error) {
+    console.error('Could not send message', error)
+  }
 }
 
-const channelMessages = computed(() =>
-  messages.value.filter(message =>
-    message.channelName === activeChannelName.value
-  )
-)
+watch(activeChannelName, loadMessages, { immediate: true })
+
+onMounted(() => {
+  refreshChannels()
+})
 
 export function useChat() {
   return {
+    channels,
+    refreshChannels,
     text,
     messages,
     commandIndex,
     sendMessage,
     filteredCommands,
-    channelMessages,
-    activeChannelName
+    channelMessages: messages,
+    activeChannelName,
+    openChannel: (name: string) => {
+      activeChannelName.value = name
+    }
   }
 }

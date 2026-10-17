@@ -48,7 +48,7 @@
 
           <q-item-section side>
             <q-badge
-              v-if="channel.status === 'private'"
+              v-if="channel.isPrivate"
               label="private"
             />
           </q-item-section>
@@ -139,11 +139,20 @@
 
 <script setup lang="ts">
 
-import { ref,watch } from 'vue'
-import { useChat} from '@/composables/useChat'
-import { useChannels } from '@/composables/createChannels'
+import { onMounted, ref,watch } from 'vue'
+import { useChat } from '@/composables/useChat'
+import { createChannel, getChannelsForUser } from '@/composables/tempBackend'
 
-const {channels,createChannels,activeChannelName,openChannel} = useChannels()
+const {
+  channels,
+  refreshChannels,
+  activeChannelName,
+  openChannel,
+  sendMessage,
+  text,
+  commandIndex,
+  filteredCommands
+} = useChat()
 const showCreateChannel = ref(false)
 const newChannelName = ref('')
 const newChannelStatus = ref<'public' | 'private'>('public')
@@ -155,7 +164,10 @@ function toggleLeftDrawer () {
 }
 
 const status = ref("Online")
-const { text, sendMessage,commandIndex,filteredCommands } = useChat()
+
+onMounted(() => {
+  refreshChannels()
+})
 
 watch(filteredCommands, () => {
   commandIndex.value = 0
@@ -184,15 +196,20 @@ function handleEnter() {
 }
 
 function confirmCreateChannel() {
-  const created = createChannels(
-    newChannelName.value,
-    newChannelStatus.value
-  )
+  const owner = sessionStorage.getItem('serpent-current-user')
+  const name = newChannelName.value.trim()
 
-  if (created) {
+  if (!owner || !name) return
+
+  try {
+    createChannel(owner, name, newChannelStatus.value === 'private')
+    channels.value = getChannelsForUser(owner)
+    activeChannelName.value = name
     showCreateChannel.value = false
     newChannelName.value = ''
     newChannelStatus.value = 'public'
+  } catch (error) {
+    console.error('Could not create channel', error)
   }
 }
 </script>
