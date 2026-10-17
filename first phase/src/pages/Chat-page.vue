@@ -78,8 +78,8 @@ const {
   cancelActiveChannel,
   isChannelAdmin,
   messageMentionsUser,
+  showChannelInfo,
 } = useChat()
-const showChannelInfo = ref(false)
 const currentUser = sessionStorage.getItem('serpent-current-user') ?? ''
 
 function confirmCancelChannel() {

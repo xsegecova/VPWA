@@ -201,16 +201,9 @@ function sendMessage() {
   const nickname = sessionStorage.getItem('serpent-current-user')
 
   if (commandName === '/quit') {
-  if (!activeChannel.value) return
-
-  if (!isChannelAdmin.value) {
-    console.warn('Kanál môže zrušiť iba správca')
+    logoutFromChat()
     return
   }
-
-  cancelActiveChannel()
-  return
-}
 
   if (commandName === '/invite') {
     const receiver = parts[1]
@@ -270,27 +263,26 @@ function sendMessage() {
   }
 
   if (commandName === '/join') {
-  const channelName = parts[1]
-  const visibility = parts[2]
+    const channelName = parts[1]
+    const visibility = parts[2]
 
-  if (!nickname || !channelName) return
-  if (visibility && visibility !== 'private') return
+    if (!channelName || (visibility && visibility !== 'private')) {
+      commandError.value = 'Usage: /join {channelName} [private]'
+      return
+    }
 
-  try {
-    const channel = joinChannel(
-      nickname,
-      channelName,
-      visibility === 'private'
-    )
+    const onlineNickname = requireOnlineUser('You must be online to join a channel')
+    if (!onlineNickname) return
 
-    refreshChannels()
-    activeChannelName.value = channel.name
-    text.value = ''
-  } catch (error) {
-    console.error('Nepodarilo sa pripojiť ku kanálu', error)
-  }
-
-  return
+    try {
+      const channel = joinChannel(onlineNickname, channelName, visibility === 'private')
+      refreshChannels()
+      activeChannelName.value = channel.name
+      text.value = ''
+    } catch (error) {
+      console.error('Could not join channel', error)
+    }
+    return
   }
 
   if (commandName === '/cancel') {
@@ -299,11 +291,11 @@ function sendMessage() {
   }
 
   if (commandName === '/list') {
-  if (!nickname || !activeChannel.value) return
+    if (!nickname || !activeChannel.value) return
 
-  showChannelInfo.value = true
-  text.value = ''
-  return
+    showChannelInfo.value = true
+    text.value = ''
+    return
   }
 
   const channelName = activeChannelName.value

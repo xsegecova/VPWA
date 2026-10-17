@@ -71,7 +71,7 @@
         :rules="[val => (val && val === password) || 'Passwords do not match']"
       />
       <q-card-actions vertical>
-      <q-span class="text-main">{{error}}</q-span>
+      <span class="text-main">{{ error }}</span>
         <div>
           <q-btn flat class="text-muted q-mt-md" type="reset" @click="error=''" >Back</q-btn>
           <q-btn flat class="text-main q-mt-md float-right" type="submit">Submit</q-btn>
