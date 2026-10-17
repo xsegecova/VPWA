@@ -29,12 +29,19 @@ function createChannels (name:string, status: 'public' | 'private'){
   }
 
   channels.value.push(new_channel)
+
+  localStorage.setItem('serpent-channels',JSON.stringify(channels.value))
+
   activeChannelName.value = name
   return true
-
-
 }
+
 const activeChannelName = ref<string | null>(null)
+const savedChannels = localStorage.getItem('serpent-channels')
+
+if (savedChannels !== null) {
+  channels.value = JSON.parse(savedChannels)
+}
 
 function openChannel(name: string) {
   activeChannelName.value = name

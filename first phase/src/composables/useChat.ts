@@ -1,8 +1,6 @@
 import {ref,computed} from 'vue'
 import { useChannels } from './createChannels'
 
-
-
 const text = ref('')
 const messages = ref<{
   name: string | null
