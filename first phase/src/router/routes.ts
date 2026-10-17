@@ -8,11 +8,11 @@ const routes = [
 
   },
   {
-    path: '/',
+    path: '/dashboard',
     component: () => import('@/layouts/AppLayout.vue'),
     meta: { requiresAuth: true },
     children: [
-      { path: 'dashboard', component: () => import('@/pages/Chat-page.vue') },
+      { path: '', component: () => import('@/pages/Chat-page.vue') },
     ],
   },
 
