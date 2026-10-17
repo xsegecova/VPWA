@@ -339,6 +339,30 @@ export function getKickedUsers(): UserKickedFromChannel[] {
   return load<UserKickedFromChannel>(kickedUsersKey)
 }
 
+export function cancelChannel(
+  channelName: string,
+  nickname: string
+): void {
+  const channels = getChannels()
+  const channel = channels.find(item => item.name === channelName)
+
+  if (!channel) {
+    throw new Error('Kanál neexistuje')
+  }
+
+  if (channel.owner === nickname) {
+    destroyChannel(channelName)
+    return
+  }
+
+  if (!channel.people.includes(nickname)) {
+    throw new Error('Používateľ nie je členom kanála')
+  }
+
+  channel.people = channel.people.filter(person => person !== nickname)
+  save(channelsKey, channels)
+}
+
 export function leaveChannel(channelName: string, nickname: string): void {
   const channels = getChannels()
   const channel = channels.find((item) => item.name === channelName)
