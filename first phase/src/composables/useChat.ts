@@ -2,22 +2,29 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   acceptInvite,
   backendChangeEvent,
+  changeNotificationPreference,
+  changeUserStatus,
   createChannel,
   cancelChannel,
   createInvite,
   getChannelsForUser,
   getInvitesForUser,
   getMessages,
+  getUser,
   kickUserFromChannel,
   leaveChannel,
   logout,
   rejectInvite,
   sendMessage as saveMessage,
+  userStatuses,
   type Channel,
   type Invite,
 } from './tempBackend'
 
+let chatConsumers = 0
+
 const text = ref('')
+const commandError = ref('')
 const messages = ref<ReturnType<typeof getMessages>>([])
 const commandIndex = ref(0)
 const currentUser = sessionStorage.getItem('serpent-current-user')
@@ -25,10 +32,17 @@ let loadedUser = currentUser
 const channels = ref<Channel[]>(currentUser ? getChannelsForUser(currentUser) : [])
 const activeChannelName = ref<string | null>(null)
 const invites = ref<Invite[]>([])
+const userStatus = ref(userStatuses.online)
+const notificationsDirectOnly = ref(false)
 
 function getLatestMessageTime(channel: Channel): number {
   const latestMessage = channel.messages[channel.messages.length - 1]
   return latestMessage ? Date.parse(latestMessage.kedy) : 0
+}
+
+function messageMentionsUser(messageText: string, nickname: string): boolean {
+  const escapedNickname = nickname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(^|\\s)@${escapedNickname}(?=\\s|$|[.,!?])`, 'i').test(messageText)
 }
 
 function getReadMessages(): Record<string, string> {
@@ -82,6 +96,27 @@ const unreadChannels = computed(() => {
   )
 })
 
+const mentionedChannels = computed(() => {
+  const nickname = sessionStorage.getItem('serpent-current-user')
+  if (!nickname) return new Set<string>()
+
+  const readMessages = getReadMessages()
+  return new Set(
+    channels.value
+      .filter((channel) => {
+        if (channel.name === activeChannelName.value) return false
+        const readAt = readMessages[channel.name] ?? ''
+        return channel.messages.some(
+          (message) =>
+            message.kedy > readAt &&
+            message.fromUser !== nickname &&
+            messageMentionsUser(message.text, nickname),
+        )
+      })
+      .map((channel) => channel.name),
+  )
+})
+
 function refreshChannels() {
   const nickname = sessionStorage.getItem('serpent-current-user')
   if (nickname !== loadedUser) {
@@ -92,6 +127,9 @@ function refreshChannels() {
 
   channels.value = nickname ? getChannelsForUser(nickname) : []
   invites.value = nickname ? getInvitesForUser(nickname) : []
+  const user = nickname ? getUser(nickname) : null
+  userStatus.value = user?.status ?? userStatuses.online
+  notificationsDirectOnly.value = user?.notificationsDirectOnly ?? false
 
   if (
     activeChannelName.value &&
@@ -100,6 +138,13 @@ function refreshChannels() {
     activeChannelName.value = null
     messages.value = []
   }
+}
+
+function refreshUserSettings() {
+  const nickname = sessionStorage.getItem('serpent-current-user')
+  const user = nickname ? getUser(nickname) : null
+  userStatus.value = user?.status ?? userStatuses.online
+  notificationsDirectOnly.value = user?.notificationsDirectOnly ?? false
 }
 
 type Command = {
@@ -126,7 +171,7 @@ const filteredCommands = computed(() => {
 
 function loadMessages() {
   const nickname = sessionStorage.getItem('serpent-current-user')
-  if (!activeChannelName.value || !nickname) {
+  if (!activeChannelName.value || !nickname || getUser(nickname)?.status === userStatuses.offline) {
     messages.value = []
     return
   }
@@ -135,8 +180,21 @@ function loadMessages() {
   markChannelAsRead(activeChannelName.value)
 }
 
+function requireOnlineUser(message: string): string | null {
+  const nickname = sessionStorage.getItem('serpent-current-user')
+  if (!nickname) return null
+
+  if (getUser(nickname)?.status === userStatuses.offline) {
+    commandError.value = message
+    return null
+  }
+
+  return nickname
+}
+
 function sendMessage() {
   const messageText = text.value.trim()
+  commandError.value = ''
   const parts = messageText.split(/\s+/)
   const commandName = parts[0]
   const nickname = sessionStorage.getItem('serpent-current-user')
@@ -149,10 +207,16 @@ function sendMessage() {
   if (commandName === '/invite') {
     const receiver = parts[1]
     const channelName = activeChannelName.value
-    if (!nickname || !receiver || !channelName) return
+    if (!receiver || !channelName) {
+      commandError.value = 'Usage: /invite {nickname} while a channel is open'
+      return
+    }
+
+    const onlineNickname = requireOnlineUser('You must be online to send invitations')
+    if (!onlineNickname) return
 
     try {
-      createInvite(nickname, receiver, channelName)
+      createInvite(onlineNickname, receiver, channelName)
       text.value = ''
     } catch (error) {
       console.error('Could not invite user', error)
@@ -163,7 +227,10 @@ function sendMessage() {
   if (commandName === '/kick') {
     const user = parts[1]
     const channelName = activeChannelName.value
-    if (!nickname || !user || !channelName) return
+    if (!nickname || !user || !channelName) {
+      commandError.value = 'Usage: /kick {nickname} while a channel is open'
+      return
+    }
 
     try {
       kickUserFromChannel(user, channelName, nickname)
@@ -179,7 +246,10 @@ function sendMessage() {
 
   if (commandName === '/leave') {
     const channelName = activeChannelName.value
-    if (!nickname || !channelName) return
+    if (!nickname || !channelName) {
+      commandError.value = 'Usage: /leave while a channel is open'
+      return
+    }
 
     try {
       leaveChannel(channelName, nickname)
@@ -197,11 +267,16 @@ function sendMessage() {
     const channelName = parts[1]
     const visibility = parts[2]
 
-
-    if (!channelName || (visibility && visibility !== 'private')) return
+    if (!channelName || (visibility && visibility !== 'private')) {
+      commandError.value = 'Usage: /join {channelName} [private]'
+      return
+    }
 
     const owner = nickname
-    if (!owner) return
+    if (!owner) {
+      commandError.value = 'You must be logged in to join a channel'
+      return
+    }
 
     try {
       createChannel(owner, channelName, visibility === 'private')
@@ -215,12 +290,19 @@ function sendMessage() {
   }
 
   if (commandName === '/cancel') {
-    cancelActiveChannel()
+    if (!cancelActiveChannel()) {
+      commandError.value = 'There is no open channel to cancel'
+    }
+    return
+  }
+
+  if (messageText.startsWith('/')) {
+    commandError.value = `Unknown command: ${commandName}`
     return
   }
 
   const channelName = activeChannelName.value
-  const fromUser = sessionStorage.getItem('serpent-current-user')
+  const fromUser = requireOnlineUser('You must be online to send messages')
 
   if (!messageText || !channelName || !fromUser) return
 
@@ -243,15 +325,38 @@ function logoutFromChat() {
   window.location.hash = '#/'
 }
 
+function setUserStatus(status: (typeof userStatuses)[keyof typeof userStatuses]) {
+  const nickname = sessionStorage.getItem('serpent-current-user')
+  if (!nickname) return
+
+  try {
+    changeUserStatus(nickname, status)
+    refreshChat()
+  } catch (error) {
+    console.error('Could not change user status', error)
+  }
+}
+
+function setNotificationsDirectOnly(directOnly: boolean) {
+  const nickname = sessionStorage.getItem('serpent-current-user')
+  if (!nickname) return
+
+  try {
+    const enabled = Boolean(directOnly)
+    changeNotificationPreference(nickname, enabled)
+    refreshUserSettings()
+  } catch (error) {
+    console.error('Could not change channel activity preference', error)
+  }
+}
+
 function refreshChat() {
   refreshChannels()
   loadMessages()
 }
 
-const activeChannel = computed(() =>
-  channels.value.find(channel =>
-    channel.name === activeChannelName.value
-  ) ?? null
+const activeChannel = computed(
+  () => channels.value.find((channel) => channel.name === activeChannelName.value) ?? null,
 )
 
 const isChannelAdmin = computed(() => {
@@ -280,14 +385,21 @@ export function useChat() {
   watch(activeChannelName, loadMessages, { immediate: true })
 
   onMounted(() => {
+    refreshUserSettings()
+    chatConsumers += 1
     refreshChat()
-    window.addEventListener(backendChangeEvent, refreshChat)
-    window.addEventListener('storage', refreshChat)
+    if (chatConsumers === 1) {
+      window.addEventListener(backendChangeEvent, refreshChat)
+      window.addEventListener('storage', refreshChat)
+    }
   })
 
   onUnmounted(() => {
-    window.removeEventListener(backendChangeEvent, refreshChat)
-    window.removeEventListener('storage', refreshChat)
+    chatConsumers -= 1
+    if (chatConsumers === 0) {
+      window.removeEventListener(backendChangeEvent, refreshChat)
+      window.removeEventListener('storage', refreshChat)
+    }
   })
 
   return {
@@ -295,6 +407,11 @@ export function useChat() {
     invites,
     refreshChannels,
     text,
+    commandError,
+    userStatus,
+    notificationsDirectOnly,
+    setUserStatus,
+    setNotificationsDirectOnly,
     messages,
     commandIndex,
     sendMessage,
@@ -308,6 +425,10 @@ export function useChat() {
     acceptInvite: (invite: Invite) => {
       const nickname = sessionStorage.getItem('serpent-current-user')
       if (!nickname) return
+      if (getUser(nickname)?.status === userStatuses.offline) {
+        commandError.value = 'You must be online to manage invitations'
+        return
+      }
 
       try {
         acceptInvite(invite, nickname)
@@ -320,6 +441,10 @@ export function useChat() {
     rejectInvite: (invite: Invite) => {
       const nickname = sessionStorage.getItem('serpent-current-user')
       if (!nickname) return
+      if (getUser(nickname)?.status === userStatuses.offline) {
+        commandError.value = 'You must be online to manage invitations'
+        return
+      }
 
       try {
         rejectInvite(invite, nickname)
@@ -333,5 +458,7 @@ export function useChat() {
     },
     sortedChannels,
     unreadChannels,
+    mentionedChannels,
+    messageMentionsUser,
   }
 }

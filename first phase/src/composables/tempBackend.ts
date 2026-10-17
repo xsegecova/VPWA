@@ -6,6 +6,7 @@ export type User = {
   email: string
   status: number
   notification: boolean
+  notificationsDirectOnly: boolean
 }
 
 export type Message = {
@@ -36,6 +37,13 @@ export type UserKickedFromChannel = {
   kickedTime: string
 }
 
+export type UserStatus = 0 | 1 | 2
+export const userStatuses = {
+  offline: 0,
+  online: 1,
+  dnd: 2,
+} as const
+
 const usersKey = 'serpent-db-users'
 const channelsKey = 'serpent-db-channels'
 const invitesKey = 'serpent-db-invites'
@@ -62,7 +70,9 @@ function save<T>(key: string, data: T[]) {
   }
 }
 
-export function createUser(user: Omit<User, 'status' | 'notification'>): 0 | 1 | 2 {
+export function createUser(
+  user: Omit<User, 'status' | 'notification' | 'notificationsDirectOnly'>,
+): 0 | 1 | 2 {
   const users = load<User>(usersKey)
 
   if (users.some((existing) => existing.email === user.email)) {
@@ -77,6 +87,7 @@ export function createUser(user: Omit<User, 'status' | 'notification'>): 0 | 1 |
     ...user,
     status: 1,
     notification: true,
+    notificationsDirectOnly: false,
   }
 
   users.push(newUser)
@@ -92,6 +103,23 @@ export function checkUser(email: string, password: string): User | null {
   return user ?? null
 }
 
+export function getUser(nickname: string): User | null {
+  return load<User>(usersKey).find((user) => user.nickname === nickname) ?? null
+}
+
+export function changeNotificationPreference(nickname: string, directOnly: boolean): User {
+  const users = load<User>(usersKey)
+  const user = users.find((current) => current.nickname === nickname)
+
+  if (!user) {
+    throw new Error(`User "${nickname}" does not exist`)
+  }
+
+  user.notificationsDirectOnly = directOnly
+  save(usersKey, users)
+  return user
+}
+
 export function logout(): void {
   sessionStorage.removeItem('serpent-current-user')
 }
@@ -102,6 +130,14 @@ export function changeUserStatus(nickname: string, status: number): User {
 
   if (!user) {
     throw new Error(`User "${nickname}" does not exist`)
+  }
+
+  if (
+    status !== userStatuses.offline &&
+    status !== userStatuses.online &&
+    status !== userStatuses.dnd
+  ) {
+    throw new Error(`Invalid status "${status}"`)
   }
 
   user.status = status
@@ -165,6 +201,9 @@ export function getChannels(): Channel[] {
 }
 
 export function getChannelsForUser(nickname: string): Channel[] {
+  const user = getUser(nickname)
+  if (!user) return []
+
   return getChannels().filter(
     (channel) => channel.owner === nickname || channel.people.includes(nickname),
   )
@@ -339,12 +378,9 @@ export function getKickedUsers(): UserKickedFromChannel[] {
   return load<UserKickedFromChannel>(kickedUsersKey)
 }
 
-export function cancelChannel(
-  channelName: string,
-  nickname: string
-): void {
+export function cancelChannel(channelName: string, nickname: string): void {
   const channels = getChannels()
-  const channel = channels.find(item => item.name === channelName)
+  const channel = channels.find((item) => item.name === channelName)
 
   if (!channel) {
     throw new Error('Kanál neexistuje')
@@ -359,7 +395,7 @@ export function cancelChannel(
     throw new Error('Používateľ nie je členom kanála')
   }
 
-  channel.people = channel.people.filter(person => person !== nickname)
+  channel.people = channel.people.filter((person) => person !== nickname)
   save(channelsKey, channels)
 }
 

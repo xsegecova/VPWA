@@ -10,10 +10,38 @@
           </q-avatar>
           <span class="q-ml-sm">Serpent</span>
           <q-space />
-          <span>Status {{ status }}</span>
+          <q-btn flat dense no-caps :label="`Status: ${statusLabel}`">
+            <q-menu>
+              <q-list style="min-width: 180px">
+                <q-item clickable v-close-popup @click="setUserStatus(userStatuses.online)">
+                  <q-item-section>Online</q-item-section>
+                </q-item>
+                <q-item clickable v-close-popup @click="setUserStatus(userStatuses.dnd)">
+                  <q-item-section>DND</q-item-section>
+                </q-item>
+                <q-item clickable v-close-popup @click="setUserStatus(userStatuses.offline)">
+                  <q-item-section>Offline</q-item-section>
+                </q-item>
+                <q-separator />
+                <q-item clickable @click.stop>
+                  <q-item-section>
+                    <q-item-label>Only mentions</q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-toggle
+                      :model-value="notificationsDirectOnly"
+                      @click.stop
+                      @update:model-value="setNotificationsDirectOnly"
+                    />
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </q-menu>
+          </q-btn>
           <q-avatar class="q-ml-sm">
             <img alt="Serpent logo" src="/serpent.png" />
           </q-avatar>
+          <span class="q-ml-sm">{{ currentUser }}</span>
           <q-btn flat label="Quit" class="q-ml-md" @click="quit" />
         </q-toolbar-title>
       </q-toolbar>
@@ -72,16 +100,40 @@
           :key="channel.name"
           clickable
           :active="activeChannelName === channel.name"
-          :class="{ 'bg-primary text-dark': unreadChannels.has(channel.name) }"
+          :class="{
+            'bg-primary text-dark':
+              unreadChannels.has(channel.name) &&
+              userStatus !== userStatuses.dnd &&
+              shouldShowChannelActivity(channel),
+            'mention-channel':
+              mentionedChannels.has(channel.name) && userStatus !== userStatuses.dnd,
+          }"
           @click="openChannel(channel.name)"
         >
           <q-item-section>
             {{ channel.name }}
+            <q-item-label
+              v-if="channelPreview(channel) && userStatus !== userStatuses.dnd"
+              v-show="shouldShowChannelActivity(channel)"
+              caption
+              :class="{ 'mention-preview': channelHasMention(channel) }"
+            >
+              <strong>{{ channelPreview(channel)?.fromUser }}:</strong>
+              {{ channelPreview(channel)?.text }}
+            </q-item-label>
           </q-item-section>
 
           <q-item-section side>
             <div class="row items-center q-gutter-sm">
-              <q-badge v-if="unreadChannels.has(channel.name)" label="new" color="positive" />
+              <q-badge
+                v-if="
+                  unreadChannels.has(channel.name) &&
+                  userStatus !== userStatuses.dnd &&
+                  shouldShowChannelActivity(channel)
+                "
+                label="new"
+                color="positive"
+              />
               <q-badge v-if="channel.isPrivate" label="private" />
             </div>
           </q-item-section>
@@ -124,6 +176,8 @@
             class="text-input-main"
             v-model="text"
             placeholder="Type here"
+            :error="commandError.length > 0"
+            :error-message="commandError"
             @keydown.up.prevent="movement(-1)"
             @keydown.down.prevent="movement(1)"
             @keydown.enter.prevent="handleEnter"
@@ -163,26 +217,33 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useChat } from '@/composables/useChat'
-import { createChannel, getChannelsForUser } from '@/composables/tempBackend'
+import { createChannel, userStatuses } from '@/composables/tempBackend'
 
 const {
-  channels,
   invites,
   refreshChannels,
   activeChannelName,
   openChannel,
   sendMessage,
   text,
+  commandError,
+  userStatus,
+  notificationsDirectOnly,
+  setUserStatus,
+  setNotificationsDirectOnly,
   commandIndex,
   filteredCommands,
   acceptInvite: acceptChannelInvite,
   rejectInvite: rejectChannelInvite,
   sortedChannels,
   unreadChannels,
+  mentionedChannels,
+  messageMentionsUser,
   logout: logoutFromChat,
 } = useChat()
+const currentUser = sessionStorage.getItem('serpent-current-user') ?? 'Unknown user'
 const showCreateChannel = ref(false)
 const newChannelName = ref('')
 const newChannelStatus = ref<'public' | 'private'>('public')
@@ -192,7 +253,24 @@ function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value
 }
 
-const status = ref('Online')
+function channelPreview(channel: { messages: { fromUser: string; text: string }[] }) {
+  return channel.messages[channel.messages.length - 1]
+}
+
+function channelHasMention(channel: { messages: { fromUser: string; text: string }[] }) {
+  const preview = channelPreview(channel)
+  return !!preview && messageMentionsUser(preview.text, currentUser)
+}
+
+function shouldShowChannelActivity(channel: { name: string }) {
+  return !notificationsDirectOnly.value || mentionedChannels.has(channel.name)
+}
+
+const statusLabel = computed(() => {
+  if (userStatus.value === userStatuses.dnd) return 'DND'
+  if (userStatus.value === userStatuses.offline) return 'Offline'
+  return 'Online'
+})
 
 onMounted(() => {
   refreshChannels()
@@ -215,6 +293,10 @@ watch(filteredCommands, () => {
   commandIndex.value = 0
 }) //resetuje poziciu indexu na 0 ked sa pickneme nejaky command
 
+watch(text, () => {
+  commandError.value = ''
+})
+
 function movement(directiom: number) {
   const nextPosition = commandIndex.value + directiom
   if (
@@ -233,7 +315,7 @@ function handleEnter() {
 
   const command = filteredCommands.value[commandIndex.value]
 
-  if (command) {
+  if (command && text.value.trim() !== command.name) {
     selectCommand(command.name)
     return //ak je command tak ho napis
   }
@@ -258,7 +340,7 @@ function confirmCreateChannel() {
 
   try {
     createChannel(owner, name, newChannelStatus.value === 'private')
-    channels.value = getChannelsForUser(owner)
+    refreshChannels()
     activeChannelName.value = name
     showCreateChannel.value = false
     newChannelName.value = ''
@@ -268,3 +350,15 @@ function confirmCreateChannel() {
   }
 }
 </script>
+
+<style scoped>
+.mention-channel {
+  background: #5b4a20 !important;
+  color: #fff3c4 !important;
+  border-left: 4px solid #d1a45d;
+}
+
+.mention-preview {
+  color: #d1a45d !important;
+}
+</style>
