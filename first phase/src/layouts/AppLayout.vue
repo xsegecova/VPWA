@@ -1,152 +1,146 @@
 <template>
   <q-layout view="hhh lpR lff">
-    <q-header bordered class="bg-secondary text-main">
+    <q-header bordered class="app-header bg-secondary text-main">
       <q-toolbar>
         <q-btn dense flat round icon="menu" @click="toggleLeftDrawer" />
 
-        <q-toolbar-title class="row items-center">
-          <q-avatar>
+        <q-toolbar-title class="row items-center brand-title">
+          <q-avatar size="34px" class="app-logo">
             <img alt="Serpent logo" src="/serpent.png" />
           </q-avatar>
-          <span class="q-ml-sm">Serpent</span>
-          <q-space />
-          <q-btn flat dense no-caps :label="`Status: ${statusLabel}`">
-            <q-menu>
-              <q-list style="min-width: 180px">
-                <q-item clickable v-close-popup @click="setUserStatus(userStatuses.online)">
-                  <q-item-section>Online</q-item-section>
-                </q-item>
-                <q-item clickable v-close-popup @click="setUserStatus(userStatuses.dnd)">
-                  <q-item-section>DND</q-item-section>
-                </q-item>
-                <q-item clickable v-close-popup @click="setUserStatus(userStatuses.offline)">
-                  <q-item-section>Offline</q-item-section>
-                </q-item>
-                <q-separator />
-                <q-item clickable @click.stop>
-                  <q-item-section>
-                    <q-item-label>Only mentions</q-item-label>
+          <span class="q-ml-sm text-weight-bold">Serpent - {{ currentUser }}</span>
+        </q-toolbar-title>
+        <q-space />
+        <q-btn flat dense no-caps class="status-button q-mr-sm">
+            <span class="status-dot" :class="`status-${statusLabel.toLowerCase()}`" />
+            <span class="q-ml-xs">Status: {{ statusLabel }}</span>
+            <q-icon name="expand_more" size="18px" class="q-ml-xs" />
+            <q-menu anchor="bottom right" self="top right" dark class="status-menu">
+              <q-list padding>
+                <q-item-label header class="status-menu-heading">Set your status</q-item-label>
+                <q-item
+                  clickable
+                  v-close-popup
+                  :active="userStatus === userStatuses.online"
+                  active-class="status-option-online"
+                  class="status-option"
+                  @click="setUserStatus(userStatuses.online)"
+                >
+                  <q-item-section avatar>
+                    <span class="status-dot status-online" />
                   </q-item-section>
-                  <q-item-section side>
-                    <q-toggle
-                      :model-value="notificationsDirectOnly"
-                      @click.stop
-                      @update:model-value="setNotificationsDirectOnly"
-                    />
+                  <q-item-section>Online</q-item-section>
+                  <q-item-section v-if="userStatus === userStatuses.online" side>
+                    <q-icon name="check" color="positive" />
+                  </q-item-section>
+                </q-item>
+                <q-item
+                  clickable
+                  v-close-popup
+                  :active="userStatus === userStatuses.dnd"
+                  active-class="status-option-dnd"
+                  class="status-option"
+                  @click="setUserStatus(userStatuses.dnd)"
+                >
+                  <q-item-section avatar>
+                    <span class="status-dot status-dnd" />
+                  </q-item-section>
+                  <q-item-section>Do not disturb</q-item-section>
+                  <q-item-section v-if="userStatus === userStatuses.dnd" side>
+                    <q-icon name="check" color="negative" />
+                  </q-item-section>
+                </q-item>
+                <q-item
+                  clickable
+                  v-close-popup
+                  :active="userStatus === userStatuses.offline"
+                  active-class="status-option-offline"
+                  class="status-option"
+                  @click="setUserStatus(userStatuses.offline)"
+                >
+                  <q-item-section avatar>
+                    <span class="status-dot status-offline" />
+                  </q-item-section>
+                  <q-item-section>Offline</q-item-section>
+                  <q-item-section v-if="userStatus === userStatuses.offline" side>
+                    <q-icon name="check" color="grey-6" />
                   </q-item-section>
                 </q-item>
               </q-list>
             </q-menu>
           </q-btn>
-          <q-avatar class="q-ml-sm">
-            <img alt="Serpent logo" src="/serpent.png" />
-          </q-avatar>
-          <span class="q-ml-sm">{{ currentUser }}</span>
-          <q-btn flat label="Quit" class="q-ml-md" @click="quit" />
-        </q-toolbar-title>
+        <q-btn
+          flat
+          round
+          dense
+          icon="settings"
+          class="settings-button q-ml-sm"
+          aria-label="Open settings"
+        >
+          <q-tooltip>Settings</q-tooltip>
+          <q-menu anchor="bottom right" self="top right" dark class="settings-menu">
+            <q-list padding style="min-width: 240px">
+              <q-item-label header class="settings-heading">
+                <q-icon name="tune" size="18px" class="q-mr-sm" />
+                Preferences
+              </q-item-label>
+              <q-item clickable class="settings-option" @click.stop>
+                <q-item-section>
+                  <q-item-label>Only mentions</q-item-label>
+                  <q-item-label caption>Show activity only when mentioned</q-item-label>
+                </q-item-section>
+                <q-item-section side>
+                  <q-toggle
+                    :model-value="notificationsDirectOnly"
+                    @click.stop
+                    @update:model-value="setNotificationsDirectOnly"
+                  />
+                </q-item-section>
+              </q-item>
+              <q-separator class="q-my-sm" />
+              <q-item clickable class="logout-option" v-close-popup @click="requestLogout">
+                <q-item-section avatar>
+                  <q-icon name="logout" color="negative" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>Log out</q-item-label>
+                  <q-item-label caption>End your current session</q-item-label>
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
+        </q-btn>
       </q-toolbar>
     </q-header>
 
-    <q-drawer v-model="leftDrawerOpen" class="chat-sidebar" show-if-above side="left" bordered>
-      <!-- drawer content -->
-      <div class="row justify-between">
-        <div class="q-ml-md q-my-sm text-h5 text-main">Chats</div>
-        <q-btn @click="showCreateChannel = true" class="right">+ </q-btn>
-      </div>
+    <ChannelDrawer
+      :drawer-open="leftDrawerOpen"
+      :invites="invites"
+      :sorted-channels="sortedChannels"
+      :active-channel-name="activeChannelName"
+      :user-status="userStatus"
+      :notifications-direct-only="notificationsDirectOnly"
+      :mentioned-channels="mentionedChannels"
+      :unread-channels="unreadChannels"
+      :current-user="currentUser"
+      :message-mentions-user="messageMentionsUser"
+      @update:drawer-open="leftDrawerOpen = $event"
+      @create-channel="showCreateChannel = true"
+      @accept-invite="acceptChannelInvite"
+      @reject-invite="rejectChannelInvite"
+      @open-channel="openChannel"
+    />
 
-      <q-separator size="3px" />
-
-      <q-list v-if="invites.length > 0" bordered>
-        <q-item-label header>
-          <q-icon name="fiber_new" color="primary" class="q-mr-sm" />
-          New invitations
-        </q-item-label>
-        <q-item
-          v-for="invite in invites"
-          :key="`${invite.sender}-${invite.channel}-${invite.sendTime}`"
-        >
-          <q-item-section>
-            <q-item-label>{{ invite.channel }}</q-item-label>
-            <q-item-label caption> Invited by {{ invite.sender }} </q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <div class="row q-gutter-xs">
-              <q-btn
-                flat
-                round
-                dense
-                icon="check"
-                color="positive"
-                aria-label="Accept invitation"
-                @click="acceptChannelInvite(invite)"
-              />
-              <q-btn
-                flat
-                round
-                dense
-                icon="close"
-                color="negative"
-                aria-label="Reject invitation"
-                @click="rejectChannelInvite(invite)"
-              />
-            </div>
-          </q-item-section>
-        </q-item>
-      </q-list>
-
-      <q-list>
-        <q-item
-          v-for="channel in sortedChannels"
-          :key="channel.name"
-          clickable
-          :active="activeChannelName === channel.name"
-          :class="{
-            'bg-primary text-dark':
-              unreadChannels.has(channel.name) &&
-              userStatus !== userStatuses.dnd &&
-              shouldShowChannelActivity(channel),
-            'mention-channel':
-              mentionedChannels.has(channel.name) && userStatus !== userStatuses.dnd,
-          }"
-          @click="openChannel(channel.name)"
-        >
-          <q-item-section>
-            {{ channel.name }}
-            <q-item-label
-              v-if="channelPreview(channel) && userStatus !== userStatuses.dnd"
-              v-show="shouldShowChannelActivity(channel)"
-              caption
-              :class="{ 'mention-preview': channelHasMention(channel) }"
-            >
-              <strong>{{ channelPreview(channel)?.fromUser }}:</strong>
-              {{ channelPreview(channel)?.text }}
-            </q-item-label>
-          </q-item-section>
-
-          <q-item-section side>
-            <div class="row items-center q-gutter-sm">
-              <q-badge
-                v-if="
-                  unreadChannels.has(channel.name) &&
-                  userStatus !== userStatuses.dnd &&
-                  shouldShowChannelActivity(channel)
-                "
-                label="new"
-                color="positive"
-              />
-              <q-badge v-if="channel.isPrivate" label="private" />
-            </div>
-          </q-item-section>
-        </q-item>
-      </q-list>
-    </q-drawer>
-    <q-dialog v-model="showCreateChannel">
-      <q-card dark style="min-width: 300px">
+    <q-dialog v-model="showCreateChannel" transition-show="scale" transition-hide="scale">
+      <q-card dark class="create-channel-card">
         <q-card-section>
-          <div class="text-h6">Vytvoriť kanál</div>
+          <div class="text-h6">Create a channel</div>
+          <div class="text-caption text-grey-5 q-mt-xs">
+            Start a new conversation with your team.
+          </div>
         </q-card-section>
 
-        <q-card-section>
+        <q-card-section class="q-pt-none">
           <q-input v-model="newChannelName" label="Názov kanála" dark />
 
           <q-select
@@ -158,68 +152,54 @@
         </q-card-section>
 
         <q-card-actions align="right">
-          <q-btn flat label="Zavrieť" v-close-popup />
+          <q-btn flat label="Cancel" v-close-popup />
 
-          <q-btn label="Vytvoriť" @click="confirmCreateChannel" />
+          <q-btn color="primary" label="Create channel" @click="confirmCreateChannel" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+    <q-dialog v-model="showLogoutConfirm" persistent>
+      <q-card dark class="confirmation-card">
+        <q-card-section>
+          <div class="text-h6">Log out?</div>
+          <div class="text-body2 text-grey-5 q-mt-sm">
+            Are you sure you want to end your current session?
+          </div>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" v-close-popup />
+          <q-btn color="negative" label="Log out" @click="confirmLogout" />
         </q-card-actions>
       </q-card>
     </q-dialog>
 
-    <q-page-container>
+    <q-page-container class="app-page-container">
       <router-view />
     </q-page-container>
 
     <q-footer bordered class="terminal text-main">
-      <q-toolbar>
-        <q-toolbar-title>
-          <q-input
-            class="text-input-main"
-            v-model="text"
-            placeholder="Type here"
-            :error="commandError.length > 0"
-            :error-message="commandError"
-            @keydown.up.prevent="movement(-1)"
-            @keydown.down.prevent="movement(1)"
-            @keydown.enter.prevent="handleEnter"
-          >
-            <q-menu
-              :model-value="filteredCommands.length > 0"
-              anchor="top left"
-              self="bottom left"
-              no-parent-event
-              no-focus
-              fit
-              dark
-            >
-              <q-list>
-                <q-item
-                  v-for="(command, index) in filteredCommands"
-                  :key="command.name"
-                  :active="index == commandIndex"
-                  clickable
-                  active-class="bg-primary text-dark"
-                  @mouseenter="commandIndex = index"
-                  @mousedown.prevent
-                  @click="selectCommand(command.name)"
-                >
-                  <q-item-section>
-                    {{ command.syntax }}
-                  </q-item-section>
-                </q-item>
-              </q-list>
-            </q-menu>
-          </q-input>
-        </q-toolbar-title>
-        <q-btn @click="submitTerminal">Send</q-btn>
-      </q-toolbar>
+      <ChatCommandInput
+        :text="text"
+        :command-error="commandError"
+        :command-index="commandIndex"
+        :filtered-commands="filteredCommands"
+        @update:text="text = $event"
+        @move="movement"
+        @enter="handleEnter"
+        @set-index="commandIndex = $event"
+        @select="selectCommand"
+        @send="submitTerminal"
+      />
     </q-footer>
   </q-layout>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useChat } from '@/composables/useChat'
 import { createChannel, userStatuses } from '@/composables/tempBackend'
+import ChannelDrawer from '@/components/ChannelDrawer.vue'
+import ChatCommandInput from '@/components/ChatCommandInput.vue'
 
 const {
   invites,
@@ -247,23 +227,11 @@ const currentUser = sessionStorage.getItem('serpent-current-user') ?? 'Unknown u
 const showCreateChannel = ref(false)
 const newChannelName = ref('')
 const newChannelStatus = ref<'public' | 'private'>('public')
+const showLogoutConfirm = ref(false)
 
 const leftDrawerOpen = ref(false)
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value
-}
-
-function channelPreview(channel: { messages: { fromUser: string; text: string }[] }) {
-  return channel.messages[channel.messages.length - 1]
-}
-
-function channelHasMention(channel: { messages: { fromUser: string; text: string }[] }) {
-  const preview = channelPreview(channel)
-  return !!preview && messageMentionsUser(preview.text, currentUser)
-}
-
-function shouldShowChannelActivity(channel: { name: string }) {
-  return !notificationsDirectOnly.value || mentionedChannels.has(channel.name)
 }
 
 const statusLabel = computed(() => {
@@ -272,15 +240,20 @@ const statusLabel = computed(() => {
   return 'Online'
 })
 
-onMounted(() => {
-  refreshChannels()
-})
+function requestLogout() {
+  showLogoutConfirm.value = true
+}
 
-function quit() {
+function confirmLogout() {
+  showLogoutConfirm.value = false
   logoutFromChat()
 }
 
 function submitTerminal() {
+  if (text.value.trim() === '/quit') {
+    requestLogout()
+    return
+  }
   sendMessage()
 }
 
@@ -304,9 +277,9 @@ function movement(directiom: number) {
 
 function handleEnter() {
   if (text.value.trim() === '/quit') {
-  sendMessage()
-  return
-}
+    requestLogout()
+    return
+  }
 
   const command = filteredCommands.value[commandIndex.value]
 
@@ -342,13 +315,140 @@ function confirmCreateChannel() {
 </script>
 
 <style scoped>
-.mention-channel {
-  background: #5b4a20 !important;
-  color: #fff3c4 !important;
-  border-left: 4px solid #d1a45d;
+.app-header {
+  backdrop-filter: blur(8px);
 }
 
-.mention-preview {
-  color: #d1a45d !important;
+.app-page-container {
+  min-height: 0;
+  height: 0;
+}
+
+.app-logo {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.create-channel-card {
+  width: min(420px, calc(100vw - 32px));
+  border: 1px solid rgba(163, 217, 119, 0.35);
+  border-radius: 0;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+.settings-menu {
+  background: #1e2720;
+  border: 1px solid #465b49;
+  border-radius: 0;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+}
+
+.settings-heading {
+  color: #a3d977;
+  font-weight: 700;
+}
+
+.settings-option,
+.logout-option {
+  border-radius: 0;
+}
+
+.settings-option:hover {
+  background: #2c392f;
+}
+
+.logout-option {
+  color: #e08076;
+}
+
+.logout-option:hover {
+  background: rgba(224, 128, 118, 0.12);
+}
+
+.confirmation-card {
+  width: min(380px, calc(100vw - 32px));
+  background: #1e2720;
+  border: 1px solid #465b49;
+  border-radius: 0;
+}
+
+.app-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.brand-title {
+  min-width: 0;
+}
+
+.settings-button {
+  align-self: center;
+}
+
+.status-button {
+  min-height: 34px;
+  border-radius: 6px;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.status-online {
+  background: #21ba45;
+}
+
+.status-dnd {
+  background: #c10015;
+}
+
+.status-offline {
+  background: #9e9e9e;
+}
+
+.status-option-active {
+  background: rgba(163, 217, 119, 0.12);
+}
+
+.status-menu {
+  min-width: 220px;
+  background: #1e2720;
+  border: 1px solid #465b49;
+  border-radius: 0;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+}
+
+.status-menu-heading {
+  color: #aab7a5;
+}
+
+.status-option {
+  border-radius: 0;
+  color: #e6ebdf;
+}
+
+.status-option:hover {
+  background: #2c392f;
+}
+
+.status-option-online[aria-selected='true'] {
+  color: #83c990;
+}
+
+.status-option-dnd[aria-selected='true'] {
+  color: #d1a45d;
+}
+
+.status-option-offline[aria-selected='true'] {
+  color: #aab7a5;
 }
 </style>

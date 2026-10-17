@@ -29,13 +29,11 @@ body.body--light {
 }
 
 .text-main {
-   color: $text-main;
-   
+  color: $text-main;
 }
 .text-muted {
-    color: $text-muted;
+  color: $text-muted;
 }
-
 
 .terminal {
   background: $terminal-bg;
@@ -49,9 +47,8 @@ body.body--light {
   color: $text-on-brand;
 }
 
-.login-card{
+.login-card {
   background: $bg-card;
-  border-style:solid ;
+  border-style: solid;
   border-color: $brd-main;
 }
- 
