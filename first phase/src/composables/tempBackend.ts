@@ -202,6 +202,14 @@ export function destroyChannel(channelName: string): void {
   }
 
   save(channelsKey, remainingChannels)
+  save(invitesKey,
+  load<Invite>(invitesKey).filter(item => item.channel !== channelName)
+)
+
+  save(kickedUsersKey,
+    load<UserKickedFromChannel>(kickedUsersKey)
+      .filter(item => item.channel !== channelName)
+  )
 }
 
 export function getMessages(channelName: string, nickname: string): Message[] {
@@ -381,4 +389,41 @@ export function leaveChannel(channelName: string, nickname: string): void {
 
   channel.people = channel.people.filter((user) => user !== nickname)
   save(channelsKey, channels)
+}
+
+export function joinChannel(
+  nickname: string,
+  name: string,
+  isPrivate = false
+): Channel {
+  const channels = getChannels()
+  const channel = channels.find(item => item.name === name)
+
+  if (!channel) {
+    return createChannel(nickname, name, isPrivate)
+  }
+
+  if (channel.people.includes(nickname)) {
+    return channel
+  }
+
+  if (channel.isPrivate) {
+    throw new Error('Do súkromného kanála potrebuješ pozvanie')
+  }
+
+  const kicks = getKickedUsers().filter(
+    item => item.channel === name && item.user === nickname
+  )
+
+  const adminBan = kicks.some(item => item.kickedBy === channel.owner)
+  const voters = new Set(kicks.map(item => item.kickedBy))
+
+  if (adminBan || voters.size >= 3) {
+    throw new Error('Do tohto kanála máš zakázaný prístup')
+  }
+
+  channel.people.push(nickname)
+  save(channelsKey, channels)
+
+  return channel
 }

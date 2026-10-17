@@ -2,7 +2,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   acceptInvite,
   backendChangeEvent,
-  createChannel,
+  joinChannel,
   cancelChannel,
   createInvite,
   getChannelsForUser,
@@ -143,9 +143,16 @@ function sendMessage() {
   const nickname = sessionStorage.getItem('serpent-current-user')
 
   if (commandName === '/quit') {
-    logoutFromChat()
+  if (!activeChannel.value) return
+
+  if (!isChannelAdmin.value) {
+    console.warn('Kanál môže zrušiť iba správca')
     return
   }
+
+  cancelActiveChannel()
+  return
+}
 
   if (commandName === '/invite') {
     const receiver = parts[1]
@@ -195,24 +202,27 @@ function sendMessage() {
   }
 
   if (commandName === '/join') {
-    const channelName = parts[1]
-    const visibility = parts[2]
+  const channelName = parts[1]
+  const visibility = parts[2]
 
+  if (!nickname || !channelName) return
+  if (visibility && visibility !== 'private') return
 
-    if (!channelName || (visibility && visibility !== 'private')) return
+  try {
+    const channel = joinChannel(
+      nickname,
+      channelName,
+      visibility === 'private'
+    )
 
-    const owner = nickname
-    if (!owner) return
+    refreshChannels()
+    activeChannelName.value = channel.name
+    text.value = ''
+  } catch (error) {
+    console.error('Nepodarilo sa pripojiť ku kanálu', error)
+  }
 
-    try {
-      createChannel(owner, channelName, visibility === 'private')
-      channels.value = getChannelsForUser(owner)
-      activeChannelName.value = channelName
-      text.value = ''
-    } catch (error) {
-      console.error('Could not create channel', error)
-    }
-    return
+  return
   }
 
   if (commandName === '/cancel') {
