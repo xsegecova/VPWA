@@ -3,6 +3,7 @@ import globals from 'globals'
 import pluginVue from 'eslint-plugin-vue'
 import pluginQuasar from '@quasar/app-vite/eslint'
 import prettierSkipFormatting from '@vue/eslint-config-prettier/skip-formatting'
+import tsParser from '@typescript-eslint/parser'
 
 export default [
   {
@@ -33,6 +34,14 @@ export default [
    *   -> Above, plus rules to enforce subjective community defaults to ensure consistency.
    */
   ...pluginVue.configs['flat/essential'],
+    {
+    files: ['**/*.vue'],
+    languageOptions: {
+      parserOptions: {
+        parser: tsParser,
+      },
+    },
+  },
 
   {
     languageOptions: {

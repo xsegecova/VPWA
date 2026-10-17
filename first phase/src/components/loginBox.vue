@@ -30,11 +30,10 @@
         v-model="nickname"
         label="Nickname *"
         lazy-rules
-        :rules="[val => (val && val.length > 5) || 'Nickname must be at least 5 characters']"
+        :rules="[val => (val && val.length >= 5) || 'Nickname must be at least 5 characters']"
       />
       <q-input
         filled
-        type="email"
         v-model="email"
         label="Email *"
         lazy-rules="ondemand"
@@ -71,11 +70,13 @@
         lazy-rules="ondemand"
         :rules="[val => (val && val === password) || 'Passwords do not match']"
       />
-
-
-      <q-btn flat class="text-muted q-mt-md" type="reset">Back</q-btn>
-      <q-btn flat class="text-main q-mt-md float-right" type="submit">Submit</q-btn>
-
+      <q-card-actions vertical>
+      <q-span class="text-main">{{error}}</q-span>
+        <div>
+          <q-btn flat class="text-muted q-mt-md" type="reset" @click="error=''" >Back</q-btn>
+          <q-btn flat class="text-main q-mt-md float-right" type="submit">Submit</q-btn>
+        </div>
+    </q-card-actions>
     </q-form>
 
     <q-card-actions vertical>
@@ -86,12 +87,11 @@
   </q-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref,computed} from 'vue'
 import { useRouter } from 'vue-router'
 
-  const state = ref("start")
-
+  // database entries
   const name = ref("")
   const surname = ref("")
   const nickname = ref("")
@@ -99,31 +99,75 @@ import { useRouter } from 'vue-router'
   const password = ref("")
   const password2 = ref("")
 
+  // components
+  const error = ref("")
+  const state = ref("start")
   const router = useRouter()
-
   const title = computed(() =>{
     if (state.value === 'start') return 'Serpent'
     if (state.value === 'login') return 'Login'
     return 'Register'}
   )
 
-  function submit()
-  {
-    if (state.value === 'register') {
-    localStorage.setItem('serpent-nickname', nickname.value)
+  // register or login  - needs to be reworked in 2. version
+  function submit() {
+  if (state.value === 'register') {
+    const users = JSON.parse(
+      localStorage.getItem('serpent-users') || '[]'
+    )
 
+    const nicknameExists = users.some(
+      (user: { nickname: string }) =>
+        user.nickname.toLowerCase() === nickname.value.trim().toLowerCase()
+    )
+
+    if (nicknameExists) {
+      // need to conect this with ui
+      error.value = "This nickname is already taken"
+      console.log('This nickname is already taken')
+      return
+    }
+
+    const newUser = {
+      nickname: nickname.value.trim(),
+      name: name.value.trim(),
+      surname: surname.value.trim(),
+      email: email.value.trim(),
+      password: password.value,
+      status: 0 // will automatically set to 0 after 1 minute on server
+    }
+
+    users.push(newUser)
+    localStorage.setItem('serpent-users', JSON.stringify(users))
     console.log('Registration successful')
-
     reset()
     state.value = 'login'
   }
-
   else if (state.value === 'login') {
-    console.log('Login successful')
-    router.push('/dashboard')
-  }
-  }
+    const users = JSON.parse(
+      localStorage.getItem('serpent-users') || '[]'
+    )
 
+    const user = users.find(
+      (user: { email: string; password: string }) =>
+        user.email === email.value.trim().toLowerCase() &&
+        user.password === password.value
+    )
+
+    if (user) {
+      // Remember which user is logged in for this tab
+      sessionStorage.setItem('serpent-current-user', user.nickname)
+      console.log('Login successful')
+      router.push('/dashboard')
+    }
+    else {
+      console.log('Login unsuccessful: invalid email or password')
+      error.value = "Invalid email or password"
+    }
+  }
+}
+
+  // reset UI
   function reset()
   {
     name.value=""
