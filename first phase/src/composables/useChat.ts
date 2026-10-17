@@ -176,8 +176,6 @@ function sendMessage() {
     try {
       kickUserFromChannel(user, channelName, nickname)
       refreshChannels()
-      activeChannelName.value = null
-      messages.value = []
       text.value = ''
     } catch (error) {
       console.error('Could not kick user', error)
