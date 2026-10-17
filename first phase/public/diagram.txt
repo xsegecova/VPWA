@@ -1,0 +1,81 @@
+classDiagram
+    class User {
+        +serial id_user <<PK>PK>
+        -string name
+        -string password
+        +string nickname
+        +string avatar
+        -string email
+        +int status
+        +boolean notification
+    }
+
+    class Channel {
+        +serial id_channel <<PK>PK>
+        +id_user owner <<FK>user_id>
+        +string name
+        +bool isPrivate
+    }
+
+    class Message {
+        +serial id_message <<PK>PK>
+        +datetime kedy
+        +int fromUser <<FK>user_id>
+        +int channel_id <<FK>channel_id>
+        +string text
+    }
+
+    class Directed{
+        +serial id_mention <<PK>PK>
+        +int TaggedUser <<FK>user_id>
+        +int messegeId <<FK>Message_id>
+    }
+
+    class Invite {
+        +serial id_invite <<PK>PK>
+        +int Sender <<FK>user_id>
+        +datetime sendTime
+        +int Reciever <<FK>user_id>
+        +int channel_id <<FK>channel_id>
+    }
+
+    class UserInChannel{
+        +serial id_userInChannel <<PK>PK>
+        +int User <<FK>user_id>
+        +int Channel <<FK>channel_id>
+        +datetime JoinedTime 
+    }
+
+    class UserKickedFromChannel{
+        +serial id_userInChannel <<PK>PK>
+        +int User <<FK>user_id>
+        +int Channel <<FK>channel_id>
+        +datetime KickedTime 
+    }
+    
+
+    %% Channel owner
+    User "1" --> "0..*" Channel : owns
+
+    %% Message sender and recipient
+    User "1" --> "0..*" Message : sends
+
+    %% Messages belonging to a channel
+    Channel "0..1" --> "0..*" Message : contains
+
+    %% Invitations
+    User "1" --> "0..*" Invite : sends
+    User "1" --> "0..*" Invite : receives
+    Channel "1" --> "0..*" Invite : invitation_for
+
+    %% User membership in channels
+    User "1" --> "0..*" UserInChannel : membership
+    Channel "1" --> "1..*" UserInChannel : has_members
+
+     %% User exmembership in channels
+    User "1" --> "0..*" UserKickedFromChannel : membership
+    Channel "1" --> "0..*" UserKickedFromChannel : has_members
+
+    %% Message directed to User
+    Message  "1" --> "0..*" Directed : directedtoUser 
+    User  "1" --> "0..*" Directed : isMentionedIn 
