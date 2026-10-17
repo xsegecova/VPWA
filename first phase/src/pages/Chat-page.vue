@@ -5,12 +5,23 @@
         {{ activeChannelName || 'Vyber kanál' }}
       </q-toolbar-title>
 
-      <q-btn v-if="activeChannelName" flat round icon="settings" @click="showChannelInfo = true">
-        <q-menu>
-          <q-dialog v-model="showChannelInfo">
-            <q-card v-if="activeChannel" dark style="min-width: 300px">
-              <q-card-section>
-                <div class="text-h6">{{ activeChannel.name }}</div>
+      <q-btn
+        v-if="activeChannelName"
+        flat
+        round
+        icon="settings"
+        @click="showChannelInfo = true "
+      >
+  </q-btn>
+</q-toolbar>
+<q-dialog v-model="showChannelInfo">
+          <q-card
+            v-if="activeChannel"
+            dark
+            style="min-width: 300px"
+          >
+        <q-card-section>
+          <div class="text-h6">{{ activeChannel.name }}</div>
 
                 <q-badge>
                   {{ activeChannel.isPrivate ? 'Private' : 'Public' }}
@@ -39,13 +50,10 @@
 
                 <q-space />
 
-                <q-btn flat label="Zavrieť" v-close-popup />
-              </q-card-actions>
-            </q-card>
-          </q-dialog>
-        </q-menu>
-      </q-btn>
-    </q-toolbar>
+      <q-btn flat label="Zavrieť" v-close-popup />
+      </q-card-actions>
+        </q-card>
+      </q-dialog>
 
     <div
       v-for="(message, index) in channelMessages"
@@ -60,7 +68,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useChat } from '@/composables/useChat'
 import { getUser, userStatuses } from '@/composables/tempBackend'
 

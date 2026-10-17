@@ -241,6 +241,14 @@ export function destroyChannel(channelName: string): void {
   }
 
   save(channelsKey, remainingChannels)
+  save(invitesKey,
+  load<Invite>(invitesKey).filter(item => item.channel !== channelName)
+)
+
+  save(kickedUsersKey,
+    load<UserKickedFromChannel>(kickedUsersKey)
+      .filter(item => item.channel !== channelName)
+  )
 }
 
 export function getMessages(channelName: string, nickname: string): Message[] {
@@ -270,6 +278,15 @@ export function createInvite(sender: string, receiver: string, channel: string):
   if (!senderCanInvite) {
     throw new Error('User is not allowed to invite people to this channel')
   }
+  if (currentChannel.owner === sender) {
+  const remainingKicks = getKickedUsers().filter(
+    item => !(item.channel === channel && item.user === receiver)
+  )
+
+  save(kickedUsersKey, remainingKicks)
+} else if (isBanned(currentChannel, receiver)) {
+  throw new Error('Prístup môže obnoviť iba správca kanála')
+}
 
   const invites = load<Invite>(invitesKey)
   const invite: Invite = {
@@ -301,6 +318,22 @@ export function acceptInvite(invite: Invite, nickname: string): Channel {
   const channel = channels.find((item) => item.name === invite.channel)
   if (!channel) {
     throw new Error(`Channel "${invite.channel}" does not exist`)
+  }
+
+  if (isBanned(channel, nickname)) {
+  throw new Error('Only admin can allow access')
+}
+
+  const storedInvite = getInvites().some(
+  item =>
+    item.sender === invite.sender &&
+    item.receiver === nickname &&
+    item.channel === invite.channel &&
+    item.sendTime === invite.sendTime
+)
+
+  if (!storedInvite) {
+    throw new Error('Invite doesnt exists')
   }
 
   if (!channel.people.includes(nickname)) {
@@ -357,7 +390,29 @@ export function kickUserFromChannel(
     throw new Error('User is not allowed to kick people from this channel')
   }
 
+  if (user === kickedBy) {
+    throw new Error('Cant kick urself')
+  }
+
+  if (user === currentChannel.owner) {
+    throw new Error('Cant kick admin')
+  }
+
   const kickedUsers = load<UserKickedFromChannel>(kickedUsersKey)
+  const previousKicks = kickedUsers.filter(
+  item => item.channel === channel && item.user === user
+  )
+
+  if (
+    !currentChannel.people.includes(user) &&
+     previousKicks.length === 0
+  ) {
+    throw new Error('The user is not member of this channel')
+  }
+
+  if (previousKicks.some(item => item.kickedBy === kickedBy)) {
+    throw new Error('U voted to kick this member')
+  }
   const kick: UserKickedFromChannel = {
     user,
     channel,
@@ -383,7 +438,7 @@ export function cancelChannel(channelName: string, nickname: string): void {
   const channel = channels.find((item) => item.name === channelName)
 
   if (!channel) {
-    throw new Error('Kanál neexistuje')
+    throw new Error('Channel doesnt exists')
   }
 
   if (channel.owner === nickname) {
@@ -392,7 +447,7 @@ export function cancelChannel(channelName: string, nickname: string): void {
   }
 
   if (!channel.people.includes(nickname)) {
-    throw new Error('Používateľ nie je členom kanála')
+    throw new Error('This user is not member of this channel')
   }
 
   channel.people = channel.people.filter((person) => person !== nickname)
@@ -417,4 +472,48 @@ export function leaveChannel(channelName: string, nickname: string): void {
 
   channel.people = channel.people.filter((user) => user !== nickname)
   save(channelsKey, channels)
+}
+
+export function joinChannel(
+  nickname: string,
+  name: string,
+  isPrivate = false
+): Channel {
+  const channels = getChannels()
+  const channel = channels.find(item => item.name === name)
+
+  if (!channel) {
+  return createChannel(nickname, name, isPrivate)
+}
+
+if (isBanned(channel, nickname)) {
+  throw new Error('Forbidden access to this channel')
+}
+
+if (channel.people.includes(nickname)) {
+  return channel
+}
+
+if (channel.isPrivate) {
+  throw new Error('Need invite to join private channel')
+}
+
+  channel.people.push(nickname)
+  save(channelsKey, channels)
+
+  return channel
+}
+
+function isBanned(channel: Channel, nickname: string): boolean {
+  const kicks = getKickedUsers().filter(
+    item => item.channel === channel.name && item.user === nickname
+  )
+
+  const adminBan = kicks.some(
+    item => item.kickedBy === channel.owner
+  )
+
+  const voters = new Set(kicks.map(item => item.kickedBy))
+
+  return adminBan || voters.size >= 3
 }

@@ -281,11 +281,6 @@ function quit() {
 }
 
 function submitTerminal() {
-  if (text.value.trim() === '/quit') {
-    logoutFromChat()
-    return
-  }
-
   sendMessage()
 }
 
@@ -309,9 +304,9 @@ function movement(directiom: number) {
 
 function handleEnter() {
   if (text.value.trim() === '/quit') {
-    logoutFromChat()
-    return
-  }
+  sendMessage()
+  return
+}
 
   const command = filteredCommands.value[commandIndex.value]
 
@@ -324,12 +319,7 @@ function handleEnter() {
 }
 
 function selectCommand(commandName: string) {
-  text.value = commandName
-  if (commandName === '/quit') {
-    logoutFromChat()
-    return
-  }
-  text.value += ' '
+  text.value = commandName + ' '
 }
 
 function confirmCreateChannel() {

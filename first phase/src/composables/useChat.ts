@@ -4,7 +4,7 @@ import {
   backendChangeEvent,
   changeNotificationPreference,
   changeUserStatus,
-  createChannel,
+  joinChannel,
   cancelChannel,
   createInvite,
   getChannelsForUser,
@@ -34,6 +34,7 @@ const activeChannelName = ref<string | null>(null)
 const invites = ref<Invite[]>([])
 const userStatus = ref(userStatuses.online)
 const notificationsDirectOnly = ref(false)
+const showChannelInfo = ref(false)
 
 function getLatestMessageTime(channel: Channel): number {
   const latestMessage = channel.messages[channel.messages.length - 1]
@@ -200,9 +201,16 @@ function sendMessage() {
   const nickname = sessionStorage.getItem('serpent-current-user')
 
   if (commandName === '/quit') {
-    logoutFromChat()
+  if (!activeChannel.value) return
+
+  if (!isChannelAdmin.value) {
+    console.warn('Kanál môže zrušiť iba správca')
     return
   }
+
+  cancelActiveChannel()
+  return
+}
 
   if (commandName === '/invite') {
     const receiver = parts[1]
@@ -235,8 +243,6 @@ function sendMessage() {
     try {
       kickUserFromChannel(user, channelName, nickname)
       refreshChannels()
-      activeChannelName.value = null
-      messages.value = []
       text.value = ''
     } catch (error) {
       console.error('Could not kick user', error)
@@ -264,41 +270,40 @@ function sendMessage() {
   }
 
   if (commandName === '/join') {
-    const channelName = parts[1]
-    const visibility = parts[2]
+  const channelName = parts[1]
+  const visibility = parts[2]
 
-    if (!channelName || (visibility && visibility !== 'private')) {
-      commandError.value = 'Usage: /join {channelName} [private]'
-      return
-    }
+  if (!nickname || !channelName) return
+  if (visibility && visibility !== 'private') return
 
-    const owner = nickname
-    if (!owner) {
-      commandError.value = 'You must be logged in to join a channel'
-      return
-    }
+  try {
+    const channel = joinChannel(
+      nickname,
+      channelName,
+      visibility === 'private'
+    )
 
-    try {
-      createChannel(owner, channelName, visibility === 'private')
-      channels.value = getChannelsForUser(owner)
-      activeChannelName.value = channelName
-      text.value = ''
-    } catch (error) {
-      console.error('Could not create channel', error)
-    }
-    return
+    refreshChannels()
+    activeChannelName.value = channel.name
+    text.value = ''
+  } catch (error) {
+    console.error('Nepodarilo sa pripojiť ku kanálu', error)
+  }
+
+  return
   }
 
   if (commandName === '/cancel') {
-    if (!cancelActiveChannel()) {
-      commandError.value = 'There is no open channel to cancel'
-    }
+    cancelActiveChannel()
     return
   }
 
-  if (messageText.startsWith('/')) {
-    commandError.value = `Unknown command: ${commandName}`
-    return
+  if (commandName === '/list') {
+  if (!nickname || !activeChannel.value) return
+
+  showChannelInfo.value = true
+  text.value = ''
+  return
   }
 
   const channelName = activeChannelName.value
@@ -382,7 +387,10 @@ function cancelActiveChannel(): boolean {
 }
 
 export function useChat() {
-  watch(activeChannelName, loadMessages, { immediate: true })
+  watch(activeChannelName, () => {
+  showChannelInfo.value = false
+  loadMessages()
+  }, { immediate: true })
 
   onMounted(() => {
     refreshUserSettings()
@@ -422,6 +430,7 @@ export function useChat() {
     activeChannel,
     cancelActiveChannel,
     isChannelAdmin,
+    showChannelInfo,
     acceptInvite: (invite: Invite) => {
       const nickname = sessionStorage.getItem('serpent-current-user')
       if (!nickname) return
