@@ -63,7 +63,7 @@ function sendMessage() {
   if (!currentChannelName) return
 
   messages.value.push({
-    name: localStorage.getItem('serpent-nickname'),
+    name: sessionStorage.getItem('serpent-current-user'),
     text: message,
     channelName: currentChannelName
   })

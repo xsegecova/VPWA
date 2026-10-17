@@ -17,7 +17,7 @@ function createChannels (name:string, status: 'public' | 'private'){
     return
   }
 
-  const nickName = localStorage.getItem('serpent-nickname')
+  const nickName = sessionStorage.getItem('serpent-current-user')
   if(!nickName) return
 
   const new_channel : Channel = {

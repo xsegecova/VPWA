@@ -1,4 +1,3 @@
-
 <template>
   <q-layout view="hhh lpR lff">
     <q-header bordered class="bg-secondary text-main">
@@ -138,7 +137,7 @@
   </q-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
 
 import { ref,watch } from 'vue'
 import { useChat} from '@/composables/useChat'
@@ -147,7 +146,7 @@ import { useChannels } from '@/composables/createChannels'
 const {channels,createChannels,activeChannelName,openChannel} = useChannels()
 const showCreateChannel = ref(false)
 const newChannelName = ref('')
-const newChannelStatus = ref('public')
+const newChannelStatus = ref<'public' | 'private'>('public')
 
 
 const leftDrawerOpen = ref(false)
@@ -163,7 +162,7 @@ watch(filteredCommands, () => {
 })  //resetuje poziciu indexu na 0 ked sa pickneme nejaky command
 
 
-function movement(directiom){
+function movement(directiom: number){
   const nextPosition = commandIndex.value + directiom
   if (
     nextPosition >= 0 && nextPosition < filteredCommands.value.length //indexovanie pozicii commandov v 'command okne' aby sme mohli mat movement up down

@@ -121,10 +121,22 @@ import { useRouter } from 'vue-router'
         user.nickname.toLowerCase() === nickname.value.trim().toLowerCase()
     )
 
+    const emailExists = users.some(
+      (user: { email: string }) =>
+        user.email.toLowerCase() === email.value.trim().toLowerCase()
+    )
+
     if (nicknameExists) {
       // need to conect this with ui
       error.value = "This nickname is already taken"
       console.log('This nickname is already taken')
+      return
+    }
+
+    if (emailExists) {
+      // need to conect this with ui
+      error.value = "This email is already taken"
+      console.log('This email is already taken')
       return
     }
 
@@ -138,7 +150,7 @@ import { useRouter } from 'vue-router'
     }
 
     users.push(newUser)
-    localStorage.setItem('serpent-users', JSON.stringify(users))
+
     console.log('Registration successful')
     reset()
     state.value = 'login'
