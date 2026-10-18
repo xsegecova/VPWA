@@ -91,7 +91,7 @@
             <span class="channel-text">{{ channel.name }}</span>
           </div>
           <q-item-label
-            v-if="channelPreview(channel) && userStatus !== userStatuses.dnd"
+            v-if="channelPreview(channel)"
             caption
             class="message-preview"
             :class="{ 'mention-preview': shouldHighlightMention(channel) }"
@@ -104,11 +104,7 @@
         <q-item-section side class="channel-meta">
           <div class="row items-center q-gutter-sm">
             <q-badge
-              v-if="
-                unreadChannels.has(channel.name) &&
-                userStatus !== userStatuses.dnd &&
-                shouldShowActivity(channel)
-              "
+              v-if="unreadChannels.has(channel.name) && shouldShowActivity(channel)"
               label="new"
               color="positive"
             />
@@ -120,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { userStatuses, type Channel, type Invite, type UserStatus } from '@/composables/tempBackend'
+import type { Channel, Invite } from '@/composables/tempBackend'
 import type { MessageMentionMatcher } from '@/composables/useChat'
 
 const props = defineProps<{
@@ -128,7 +124,6 @@ const props = defineProps<{
   sortedChannels: Channel[]
   activeChannelName: string | null
   drawerOpen: boolean
-  userStatus: UserStatus
   notificationsDirectOnly: boolean
   mentionedChannels: Set<string>
   unreadChannels: Set<string>
@@ -163,15 +158,9 @@ function shouldHighlightMention(channel: Channel) {
 
 function channelClasses(channel: Channel) {
   return {
-    'unread-channel':
-      props.unreadChannels.has(channel.name) &&
-      props.userStatus !== userStatuses.dnd &&
-      shouldShowActivity(channel),
+    'unread-channel': props.unreadChannels.has(channel.name) && shouldShowActivity(channel),
     'active-channel': props.activeChannelName === channel.name,
-    'mention-channel':
-      !props.notificationsDirectOnly &&
-      props.mentionedChannels.has(channel.name) &&
-      props.userStatus !== userStatuses.dnd,
+    'mention-channel': !props.notificationsDirectOnly && props.mentionedChannels.has(channel.name),
   }
 }
 </script>

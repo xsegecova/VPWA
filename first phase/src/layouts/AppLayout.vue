@@ -97,6 +97,26 @@
                   />
                 </q-item-section>
               </q-item>
+              <q-item clickable class="settings-option" @click="requestDesktopNotifications">
+                <q-item-section>
+                  <q-item-label>Desktop notifications</q-item-label>
+                  <q-item-label caption>Show notifications outside the app</q-item-label>
+                </q-item-section>
+                <q-item-section side>
+                  <q-icon
+                    :name="
+                      typeof Notification !== 'undefined' && Notification.permission === 'granted'
+                        ? 'notifications_active'
+                        : 'notifications_none'
+                    "
+                    :color="
+                      typeof Notification !== 'undefined' && Notification.permission === 'granted'
+                        ? 'positive'
+                        : 'grey-6'
+                    "
+                  />
+                </q-item-section>
+              </q-item>
               <q-separator class="q-my-sm" />
               <q-item clickable class="logout-option" v-close-popup @click="requestLogout">
                 <q-item-section avatar>
@@ -118,7 +138,6 @@
       :invites="invites"
       :sorted-channels="sortedChannels"
       :active-channel-name="activeChannelName"
-      :user-status="userStatus"
       :notifications-direct-only="notificationsDirectOnly"
       :mentioned-channels="mentionedChannels"
       :unread-channels="unreadChannels"
@@ -230,6 +249,7 @@ const {
   notificationsDirectOnly,
   setUserStatus,
   setNotificationsDirectOnly,
+  requestDesktopNotifications,
   commandIndex,
   filteredCommands,
   acceptInvite: acceptChannelInvite,
