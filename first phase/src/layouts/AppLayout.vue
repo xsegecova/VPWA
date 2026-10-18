@@ -274,10 +274,6 @@ function confirmLogout() {
 }
 
 function submitTerminal() {
-  if (text.value.trim() === '/quit') {
-    requestLogout()
-    return
-  }
   sendMessage()
 }
 
@@ -306,11 +302,6 @@ function movement(directiom: number) {
 }
 
 function handleEnter() {
-  if (text.value.trim() === '/quit') {
-    requestLogout()
-    return
-  }
-
   const command = filteredCommands.value[commandIndex.value]
 
   if (command && text.value.trim() !== command.name) {
