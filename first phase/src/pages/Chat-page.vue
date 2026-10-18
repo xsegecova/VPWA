@@ -202,6 +202,7 @@ function loadOlderMessages(_index: number, done: () => void) {
 watch(activeChannelName, () => {
   visibleMessageCount.value = pageSize
   isNearBottom.value = true
+  selectedDraftUser.value = null
   void nextTick(scrollToBottom)
 })
 
@@ -266,9 +267,19 @@ function statusLabel(nickname: string) {
   align-items: center;
   flex: 0 0 auto;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+  width: calc(100% + 32px);
   min-width: 0;
   gap: 4px;
+  margin-right: -16px;
+  margin-left: -16px;
   padding-top: 8px;
+  padding-right: 16px;
+  padding-bottom: 8px;
+  padding-left: 16px;
+  box-sizing: border-box;
+  background: #1e2720;
   color: #aab7a5;
   font-size: 0.8rem;
 }
@@ -324,6 +335,8 @@ function statusLabel(nickname: string) {
   height: 0;
   min-height: 0;
   min-width: 0;
+  padding-bottom: 8px;
+  box-sizing: border-box;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: none;

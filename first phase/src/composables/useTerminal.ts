@@ -185,8 +185,6 @@ export function useTerminal(channel: ChannelActions) {
       channel.loadMessages()
       text.value = ''
       channel.setCurrentMessage('')
-      commandMessageType.value = 'success'
-      commandMessage.value = 'Message sent'
     } catch (error) {
       console.error('Could not send message', error)
       commandMessageType.value = 'error'
