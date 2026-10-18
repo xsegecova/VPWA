@@ -1,5 +1,5 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
-import { createInvite, joinChannel, getCurNickname } from './tempBackend'
+import { createInvite, joinChannel, getCurNickname, type Channel } from './tempBackend'
 
 type Command = {
   name: string
@@ -19,7 +19,7 @@ const commands: Command[] = [
 
 type ChannelActions = {
   activeChannelName: Ref<string | null>
-  activeChannel: ComputedRef<unknown>
+  activeChannel: ComputedRef<Channel | null>
   commandError: Ref<string>
   commandMessage: Ref<string>
   commandMessageType: Ref<'success' | 'error'>
@@ -33,7 +33,6 @@ type ChannelActions = {
   kickUserFromChannel: (user: string, channel: string) => unknown
   leaveChannel: (channel: string) => unknown
   showChannelInfo: Ref<boolean>
-  logout: () => void
 }
 
 export function useTerminal(channel: ChannelActions) {
@@ -56,8 +55,24 @@ export function useTerminal(channel: ChannelActions) {
     const nickname = getCurNickname()
 
     if (commandName === '/quit') {
-      channel.setCurrentMessage('')
-      channel.logout()
+      const activeChannel = channel.activeChannel.value
+      if (!activeChannel) {
+        commandError.value = 'Open a channel before using /quit'
+        return
+      }
+      if (!channel.requireOnlineUser('You must be online to delete a channel')) return
+      if (activeChannel.owner !== nickname) {
+        commandError.value = 'Only the channel owner can delete the channel'
+        return
+      }
+      if (channel.cancelActiveChannel()) {
+        text.value = ''
+        channel.setCurrentMessage('')
+        commandMessageType.value = 'success'
+        commandMessage.value = `Deleted "${activeChannel.name}"`
+      } else {
+        commandError.value = 'Could not delete the channel'
+      }
       return
     }
 

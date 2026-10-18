@@ -73,7 +73,6 @@ export function useChat() {
     kickUserFromChannel: channel.kickUserFromChannel,
     leaveChannel: channel.leaveChannel,
     showChannelInfo: channel.showChannelInfo,
-    logout: channel.logout,
   })
 
   watch(
