@@ -1,6 +1,5 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
-import { createInvite, joinChannel } from './tempBackend'
-import { getCurrentNickname } from './useChannel'
+import { createInvite, joinChannel, getCurNickname } from './tempBackend'
 
 type Command = {
   name: string
@@ -22,14 +21,17 @@ type ChannelActions = {
   activeChannelName: Ref<string | null>
   activeChannel: ComputedRef<unknown>
   commandError: Ref<string>
+  commandMessage: Ref<string>
+  commandMessageType: Ref<'success' | 'error'>
   text: Ref<string>
   refreshChannels: () => void
   loadMessages: () => void
   requireOnlineUser: (message: string) => string | null
+  setCurrentMessage: (text: string) => void
   cancelActiveChannel: () => boolean
-  saveMessage: (channel: string, from: string, text: string) => unknown
-  kickUserFromChannel: (user: string, channel: string, by: string) => unknown
-  leaveChannel: (channel: string, nickname: string) => unknown
+  saveMessage: (channel: string, text: string) => unknown
+  kickUserFromChannel: (user: string, channel: string) => unknown
+  leaveChannel: (channel: string) => unknown
   showChannelInfo: Ref<boolean>
   logout: () => void
 }
@@ -37,6 +39,8 @@ type ChannelActions = {
 export function useTerminal(channel: ChannelActions) {
   const text = channel.text
   const commandError = channel.commandError
+  const commandMessage = channel.commandMessage
+  const commandMessageType = channel.commandMessageType
   const commandIndex = ref(0)
   const filteredCommands = computed(() => {
     if (!text.value.startsWith('/')) return []
@@ -46,11 +50,13 @@ export function useTerminal(channel: ChannelActions) {
   function sendMessage() {
     const messageText = text.value.trim()
     commandError.value = ''
+    commandMessage.value = ''
     const parts = messageText.split(/\s+/)
     const commandName = parts[0]
-    const nickname = getCurrentNickname()
+    const nickname = getCurNickname()
 
     if (commandName === '/quit') {
+      channel.setCurrentMessage('')
       channel.logout()
       return
     }
@@ -65,10 +71,15 @@ export function useTerminal(channel: ChannelActions) {
       const onlineNickname = channel.requireOnlineUser('You must be online to send invitations')
       if (!onlineNickname) return
       try {
-        createInvite(onlineNickname, receiver, channelName)
+        createInvite(receiver, channelName)
         text.value = ''
+        channel.setCurrentMessage('')
+        commandMessageType.value = 'success'
+        commandMessage.value = `Invitation sent to "${receiver}"`
       } catch (error) {
         console.error('Could not invite user', error)
+        commandMessageType.value = 'error'
+        commandMessage.value = error instanceof Error ? error.message : 'Could not send invitation'
       }
       return
     }
@@ -81,11 +92,16 @@ export function useTerminal(channel: ChannelActions) {
         return
       }
       try {
-        channel.kickUserFromChannel(user, channelName, nickname)
+        channel.kickUserFromChannel(user, channelName)
         channel.refreshChannels()
         text.value = ''
+        channel.setCurrentMessage('')
+        commandMessageType.value = 'success'
+        commandMessage.value = `Removed "${user}" from the channel`
       } catch (error) {
         console.error('Could not kick user', error)
+        commandMessageType.value = 'error'
+        commandMessage.value = error instanceof Error ? error.message : 'Could not remove user'
       }
       return
     }
@@ -97,12 +113,17 @@ export function useTerminal(channel: ChannelActions) {
         return
       }
       try {
-        channel.leaveChannel(channelName, nickname)
+        channel.leaveChannel(channelName)
         channel.refreshChannels()
         channel.activeChannelName.value = null
         text.value = ''
+        channel.setCurrentMessage('')
+        commandMessageType.value = 'success'
+        commandMessage.value = `Left "${channelName}"`
       } catch (error) {
         console.error('Could not leave channel', error)
+        commandMessageType.value = 'error'
+        commandMessage.value = error instanceof Error ? error.message : 'Could not leave channel'
       }
       return
     }
@@ -117,18 +138,29 @@ export function useTerminal(channel: ChannelActions) {
       const onlineNickname = channel.requireOnlineUser('You must be online to join a channel')
       if (!onlineNickname) return
       try {
-        const joinedChannel = joinChannel(onlineNickname, channelName, visibility === 'private')
+        const joinedChannel = joinChannel(channelName, visibility === 'private')
         channel.refreshChannels()
         channel.activeChannelName.value = joinedChannel.name
         text.value = ''
+        channel.setCurrentMessage('')
+        commandMessageType.value = 'success'
+        commandMessage.value = `Joined "${joinedChannel.name}"`
       } catch (error) {
         console.error('Could not join channel', error)
+        commandMessageType.value = 'error'
+        commandMessage.value = error instanceof Error ? error.message : 'Could not join channel'
       }
       return
     }
 
     if (commandName === '/cancel') {
-      channel.cancelActiveChannel()
+      const cancelled = channel.cancelActiveChannel()
+      if (cancelled) {
+        text.value = ''
+        channel.setCurrentMessage('')
+        commandMessageType.value = 'success'
+        commandMessage.value = 'Message cancelled'
+      }
       return
     }
 
@@ -136,6 +168,9 @@ export function useTerminal(channel: ChannelActions) {
       if (nickname && channel.activeChannel.value) {
         channel.showChannelInfo.value = true
         text.value = ''
+        channel.setCurrentMessage('')
+        commandMessageType.value = 'success'
+        commandMessage.value = 'Displayed channel information'
       }
       return
     }
@@ -143,18 +178,29 @@ export function useTerminal(channel: ChannelActions) {
     const channelName = channel.activeChannelName.value
     if (!messageText || !channelName) return
 
-    const fromUser = channel.requireOnlineUser('You must be online to send messages')
-    if (!fromUser) return
+    if (!channel.requireOnlineUser('You must be online to send messages')) return
 
     try {
-      channel.saveMessage(channelName, fromUser, messageText)
+      channel.saveMessage(channelName, messageText)
       channel.loadMessages()
       text.value = ''
+      channel.setCurrentMessage('')
+      commandMessageType.value = 'success'
+      commandMessage.value = 'Message sent'
     } catch (error) {
       console.error('Could not send message', error)
-      commandError.value = error instanceof Error ? error.message : 'Could not send message'
+      commandMessageType.value = 'error'
+      commandMessage.value = error instanceof Error ? error.message : 'Could not send message'
     }
   }
 
-  return { text, commandError, commandIndex, filteredCommands, sendMessage }
+  return {
+    text,
+    commandError,
+    commandMessage,
+    commandMessageType,
+    commandIndex,
+    filteredCommands,
+    sendMessage,
+  }
 }

@@ -1,18 +1,22 @@
-import { onMounted, onUnmounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { backendChangeEvent } from './tempBackend'
 import { useChannel } from './useChannel'
 import { useTerminal } from './useTerminal'
 
 export function useChat() {
   const channel = useChannel()
+  const currentMessages = computed(() => channel.activeChannel.value?.currentMessages ?? [])
   const terminal = useTerminal({
     activeChannelName: channel.activeChannelName,
     activeChannel: channel.activeChannel,
     commandError: channel.commandError,
+    commandMessage: channel.commandMessage,
+    commandMessageType: channel.commandMessageType,
     text: channel.text,
     refreshChannels: channel.refreshChannels,
     loadMessages: channel.loadMessages,
     requireOnlineUser: channel.requireOnlineUser,
+    setCurrentMessage: channel.setCurrentMessage,
     cancelActiveChannel: channel.cancelActiveChannel,
     saveMessage: channel.saveMessage,
     kickUserFromChannel: channel.kickUserFromChannel,
@@ -49,5 +53,6 @@ export function useChat() {
     ...channel,
     ...terminal,
     channelMessages: channel.messages,
+    currentMessages,
   }
 }

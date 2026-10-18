@@ -1,5 +1,5 @@
 <template>
-  <q-layout view="hhh lpR lff">
+  <q-layout view="hhh lpR lff" class="app-layout">
     <q-header bordered class="app-header bg-secondary text-main">
       <q-toolbar>
         <q-btn dense flat round icon="menu" @click="toggleLeftDrawer" />
@@ -8,67 +8,67 @@
           <q-avatar size="34px" class="app-logo">
             <img alt="Serpent logo" src="/serpent.png" />
           </q-avatar>
-          <span class="q-ml-sm text-weight-bold">Serpent - {{ currentUser }}</span>
+          <span class="q-ml-sm text-weight-bold brand-name">Serpent - {{ currentUser }}</span>
         </q-toolbar-title>
         <q-space />
         <q-btn flat dense no-caps class="status-button q-mr-sm">
-            <span class="status-dot" :class="`status-${statusLabel.toLowerCase()}`" />
-            <span class="q-ml-xs">Status: {{ statusLabel }}</span>
-            <q-icon name="expand_more" size="18px" class="q-ml-xs" />
-            <q-menu anchor="bottom right" self="top right" dark class="status-menu">
-              <q-list padding>
-                <q-item-label header class="status-menu-heading">Set your status</q-item-label>
-                <q-item
-                  clickable
-                  v-close-popup
-                  :active="userStatus === userStatuses.online"
-                  active-class="status-option-online"
-                  class="status-option"
-                  @click="setUserStatus(userStatuses.online)"
-                >
-                  <q-item-section avatar>
-                    <span class="status-dot status-online" />
-                  </q-item-section>
-                  <q-item-section>Online</q-item-section>
-                  <q-item-section v-if="userStatus === userStatuses.online" side>
-                    <q-icon name="check" color="positive" />
-                  </q-item-section>
-                </q-item>
-                <q-item
-                  clickable
-                  v-close-popup
-                  :active="userStatus === userStatuses.dnd"
-                  active-class="status-option-dnd"
-                  class="status-option"
-                  @click="setUserStatus(userStatuses.dnd)"
-                >
-                  <q-item-section avatar>
-                    <span class="status-dot status-dnd" />
-                  </q-item-section>
-                  <q-item-section>Do not disturb</q-item-section>
-                  <q-item-section v-if="userStatus === userStatuses.dnd" side>
-                    <q-icon name="check" color="negative" />
-                  </q-item-section>
-                </q-item>
-                <q-item
-                  clickable
-                  v-close-popup
-                  :active="userStatus === userStatuses.offline"
-                  active-class="status-option-offline"
-                  class="status-option"
-                  @click="setUserStatus(userStatuses.offline)"
-                >
-                  <q-item-section avatar>
-                    <span class="status-dot status-offline" />
-                  </q-item-section>
-                  <q-item-section>Offline</q-item-section>
-                  <q-item-section v-if="userStatus === userStatuses.offline" side>
-                    <q-icon name="check" color="grey-6" />
-                  </q-item-section>
-                </q-item>
-              </q-list>
-            </q-menu>
-          </q-btn>
+          <span class="status-dot" :class="`status-${statusLabel.toLowerCase()}`" />
+          <span class="q-ml-xs">Status: {{ statusLabel }}</span>
+          <q-icon name="expand_more" size="18px" class="q-ml-xs" />
+          <q-menu anchor="bottom right" self="top right" dark class="status-menu">
+            <q-list padding>
+              <q-item-label header class="status-menu-heading">Set your status</q-item-label>
+              <q-item
+                clickable
+                v-close-popup
+                :active="userStatus === userStatuses.online"
+                active-class="status-option-online"
+                class="status-option"
+                @click="setUserStatus(userStatuses.online)"
+              >
+                <q-item-section avatar>
+                  <span class="status-dot status-online" />
+                </q-item-section>
+                <q-item-section>Online</q-item-section>
+                <q-item-section v-if="userStatus === userStatuses.online" side>
+                  <q-icon name="check" color="positive" />
+                </q-item-section>
+              </q-item>
+              <q-item
+                clickable
+                v-close-popup
+                :active="userStatus === userStatuses.dnd"
+                active-class="status-option-dnd"
+                class="status-option"
+                @click="setUserStatus(userStatuses.dnd)"
+              >
+                <q-item-section avatar>
+                  <span class="status-dot status-dnd" />
+                </q-item-section>
+                <q-item-section>Do not disturb</q-item-section>
+                <q-item-section v-if="userStatus === userStatuses.dnd" side>
+                  <q-icon name="check" color="negative" />
+                </q-item-section>
+              </q-item>
+              <q-item
+                clickable
+                v-close-popup
+                :active="userStatus === userStatuses.offline"
+                active-class="status-option-offline"
+                class="status-option"
+                @click="setUserStatus(userStatuses.offline)"
+              >
+                <q-item-section avatar>
+                  <span class="status-dot status-offline" />
+                </q-item-section>
+                <q-item-section>Offline</q-item-section>
+                <q-item-section v-if="userStatus === userStatuses.offline" side>
+                  <q-icon name="check" color="grey-6" />
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
+        </q-btn>
         <q-btn
           flat
           round
@@ -125,7 +125,7 @@
       :current-user="currentUser"
       :message-mentions-user="messageMentionsUser"
       @update:drawer-open="leftDrawerOpen = $event"
-      @create-channel="showCreateChannel = true"
+      @create-channel="openCreateChannel"
       @accept-invite="acceptChannelInvite"
       @reject-invite="rejectChannelInvite"
       @open-channel="openChannel"
@@ -141,7 +141,19 @@
         </q-card-section>
 
         <q-card-section class="q-pt-none">
-          <q-input v-model="newChannelName" label="Názov kanála" dark />
+          <q-input
+            v-model="newChannelName"
+            label="Názov kanála"
+            dark
+            :error="createChannelMessageType === 'error'"
+          />
+          <div
+            v-if="createChannelMessage"
+            class="channel-message"
+            :class="`channel-message--${createChannelMessageType}`"
+          >
+            {{ createChannelMessage }}
+          </div>
 
           <q-select
             v-model="newChannelStatus"
@@ -181,9 +193,11 @@
       <ChatCommandInput
         :text="text"
         :command-error="commandError"
+        :command-message="commandMessage"
+        :command-message-type="commandMessageType"
         :command-index="commandIndex"
         :filtered-commands="filteredCommands"
-        @update:text="text = $event"
+        @update:text="updateTerminalText"
         @move="movement"
         @enter="handleEnter"
         @set-index="commandIndex = $event"
@@ -209,6 +223,9 @@ const {
   sendMessage,
   text,
   commandError,
+  commandMessage,
+  commandMessageType,
+  setCurrentMessage,
   userStatus,
   notificationsDirectOnly,
   setUserStatus,
@@ -227,11 +244,18 @@ const currentUser = sessionStorage.getItem('serpent-current-user') ?? 'Unknown u
 const showCreateChannel = ref(false)
 const newChannelName = ref('')
 const newChannelStatus = ref<'public' | 'private'>('public')
+const createChannelMessage = ref('')
+const createChannelMessageType = ref<'success' | 'error'>('success')
 const showLogoutConfirm = ref(false)
 
 const leftDrawerOpen = ref(false)
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value
+}
+
+function updateTerminalText(value: string) {
+  text.value = value
+  setCurrentMessage(value.startsWith('/') ? '' : value)
 }
 
 const statusLabel = computed(() => {
@@ -255,6 +279,12 @@ function submitTerminal() {
     return
   }
   sendMessage()
+}
+
+function openCreateChannel() {
+  createChannelMessage.value = ''
+  newChannelName.value = ''
+  showCreateChannel.value = true
 }
 
 watch(filteredCommands, () => {
@@ -293,23 +323,30 @@ function handleEnter() {
 
 function selectCommand(commandName: string) {
   text.value = commandName + ' '
+  setCurrentMessage('')
 }
 
 function confirmCreateChannel() {
-  const owner = sessionStorage.getItem('serpent-current-user')
   const name = newChannelName.value.trim()
 
-  if (!owner || !name) return
+  if (!name) {
+    createChannelMessageType.value = 'error'
+    createChannelMessage.value = 'Channel name is required'
+    return
+  }
 
   try {
-    createChannel(owner, name, newChannelStatus.value === 'private')
+    createChannel(name, newChannelStatus.value === 'private')
     refreshChannels()
     activeChannelName.value = name
-    showCreateChannel.value = false
     newChannelName.value = ''
     newChannelStatus.value = 'public'
+    createChannelMessageType.value = 'success'
+    createChannelMessage.value = `Channel "${name}" created successfully`
   } catch (error) {
     console.error('Could not create channel', error)
+    createChannelMessageType.value = 'error'
+    createChannelMessage.value = error instanceof Error ? error.message : 'Could not create channel'
   }
 }
 </script>
@@ -383,14 +420,39 @@ function confirmCreateChannel() {
 }
 
 .brand-title {
+  flex: 0 1 auto;
   min-width: 0;
+  white-space: nowrap;
+}
+
+.brand-name {
+  display: inline-block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  vertical-align: middle;
 }
 
 .settings-button {
+  flex: 0 0 auto;
   align-self: center;
 }
 
+.channel-message {
+  margin-top: 8px;
+  font-size: 0.85rem;
+}
+
+.channel-message--success {
+  color: #a3d977;
+}
+
+.channel-message--error {
+  color: #e08076;
+}
+
 .status-button {
+  flex: 0 0 auto;
   min-height: 34px;
   border-radius: 6px;
 }
@@ -401,6 +463,12 @@ function confirmCreateChannel() {
   height: 9px;
   border-radius: 50%;
   flex: 0 0 auto;
+}
+
+@media (max-width: 520px) {
+  .brand-name {
+    display: none;
+  }
 }
 
 .status-online {

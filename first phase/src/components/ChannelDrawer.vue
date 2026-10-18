@@ -33,8 +33,8 @@
         v-for="invite in invites"
         :key="`${invite.sender}-${invite.channel}-${invite.sendTime}`"
       >
-        <q-item-section>
-          <q-item-label>{{ invite.channel }}</q-item-label>
+        <q-item-section class="channel-content">
+          <q-item-label class="channel-text">{{ invite.channel }}</q-item-label>
           <q-item-label caption>Invited by {{ invite.sender }}</q-item-label>
         </q-item-section>
         <q-item-section side>
@@ -72,7 +72,7 @@
         :class="channelClasses(channel)"
         @click="$emit('open-channel', channel.name)"
       >
-        <q-item-section>
+        <q-item-section class="channel-content">
           <div class="channel-name">
             <q-icon
               v-if="channel.owner === currentUser"
@@ -88,11 +88,12 @@
               class="private-channel-icon"
               aria-label="Private channel"
             />
-            <span>{{ channel.name }}</span>
+            <span class="channel-text">{{ channel.name }}</span>
           </div>
           <q-item-label
             v-if="channelPreview(channel) && userStatus !== userStatuses.dnd"
             caption
+            class="message-preview"
             :class="{ 'mention-preview': shouldHighlightMention(channel) }"
           >
             <strong>{{ channelPreview(channel)?.fromUser }}:</strong>
@@ -198,11 +199,24 @@ function channelClasses(channel: Channel) {
 
 .channel-item {
   min-height: 52px;
+  min-width: 0;
   margin: 0 8px;
   border-bottom: 1px solid rgba(70, 91, 73, 0.45);
   transition:
     background-color 120ms ease,
     border-color 120ms ease;
+}
+
+.channel-content {
+  min-width: 0;
+}
+
+.channel-text,
+.message-preview {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .channel-item:hover {
@@ -223,6 +237,7 @@ function channelClasses(channel: Channel) {
 .channel-name {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 7px;
   font-weight: 600;
 }

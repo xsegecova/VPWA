@@ -10,7 +10,7 @@
         class="channel-name-button"
         @click="showChannelInfo = true"
       >
-        <span>{{ activeChannelName || 'Vyber kanál' }}</span>
+        <span>{{ activeChannelName || 'Create channel' }}</span>
         <q-icon v-if="activeChannelName" name="build" size="16px" class="channel-wrench" />
         <q-tooltip v-if="activeChannelName">Channel settings</q-tooltip>
       </q-btn>
@@ -114,6 +114,26 @@
         </template>
       </q-infinite-scroll>
     </div>
+    <div v-if="typingMessages.length > 0" class="typing-indicator">
+      <span>{{ typingNames }} {{ typingMessages.length === 1 ? 'is' : 'are' }} typing...</span>
+      <div class="typing-user-buttons">
+        <q-btn
+          v-for="message in typingMessages"
+          :key="message.fromUser"
+          flat
+          dense
+          no-caps
+          class="typing-user-button"
+          @click="showDraft(message.fromUser)"
+        >
+          {{ message.fromUser }}
+        </q-btn>
+      </div>
+      <div v-if="selectedDraft" class="draft-preview">
+        <strong>{{ selectedDraft.fromUser }}:</strong>
+        {{ selectedDraft.text }}
+      </div>
+    </div>
   </q-page>
 </template>
 
@@ -130,6 +150,7 @@ const {
   isChannelAdmin,
   messageMentionsUser,
   showChannelInfo,
+  currentMessages,
 } = useChat()
 const currentUser = sessionStorage.getItem('serpent-current-user') ?? ''
 const pageSize = 30
@@ -137,9 +158,24 @@ const visibleMessageCount = ref(pageSize)
 const messageScroll = ref<HTMLDivElement | null>(null)
 const isNearBottom = ref(true)
 const showChannelActionConfirm = ref(false)
+const selectedDraftUser = ref<string | null>(null)
 
 const visibleMessages = computed(() => channelMessages.value.slice(-visibleMessageCount.value))
 const hasMoreMessages = computed(() => visibleMessageCount.value < channelMessages.value.length)
+const typingMessages = computed(() =>
+  currentMessages.value.filter((message) => message.fromUser !== currentUser),
+)
+const typingNames = computed(() =>
+  typingMessages.value.map((message) => message.fromUser).join(', '),
+)
+const selectedDraft = computed(
+  () =>
+    typingMessages.value.find((message) => message.fromUser === selectedDraftUser.value) ?? null,
+)
+
+function showDraft(nickname: string) {
+  selectedDraftUser.value = selectedDraftUser.value === nickname ? null : nickname
+}
 
 function updateScrollPosition() {
   const element = messageScroll.value
@@ -197,12 +233,14 @@ function statusLabel(nickname: string) {
 }
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .user-message {
   width: fit-content;
   max-width: 75%;
+  min-width: 0;
   margin-right: auto;
   padding: 10px 14px;
+  box-sizing: border-box;
   background: #304329;
   color: #e6ebdf;
   border-radius: 12px;
@@ -221,6 +259,43 @@ function statusLabel(nickname: string) {
   flex: 0 0 auto;
   padding-left: 0;
   padding-right: 0;
+}
+
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: 4px;
+  padding-top: 8px;
+  color: #aab7a5;
+  font-size: 0.8rem;
+}
+
+.typing-user-buttons {
+  display: flex;
+  align-items: center;
+}
+
+.typing-user-button {
+  min-height: 24px;
+  color: #d1a45d;
+}
+
+.draft-preview {
+  flex: 1 1 100%;
+  min-width: 0;
+  padding: 6px 10px;
+  color: #e6ebdf;
+  background: rgba(48, 67, 41, 0.7);
+  border-left: 3px solid #d1a45d;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.draft-preview strong {
+  color: #d1a45d;
 }
 
 .channel-name-button {
@@ -248,6 +323,7 @@ function statusLabel(nickname: string) {
   flex: 1 1 auto;
   height: 0;
   min-height: 0;
+  min-width: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: none;
@@ -260,9 +336,11 @@ function statusLabel(nickname: string) {
 
 .message-scroll :deep(.q-infinite-scroll) {
   min-height: 100%;
+  min-width: 0;
 }
 
 .message-wrapper {
+  min-width: 0;
   margin-bottom: 12px;
 }
 

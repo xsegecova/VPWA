@@ -1,3 +1,13 @@
+export type UserStatus = 0 | 1 | 2
+
+export const userStatuses = {
+  offline: 0,
+  online: 1,
+  dnd: 2,
+} as const
+
+export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read'
+
 export type User = {
   name: string
   surname: string
@@ -12,6 +22,8 @@ export type Message = {
   kedy: string
   fromUser: string
   text: string
+  status: MessageStatus
+  readBy: string[]
 }
 
 export type Channel = {
@@ -20,6 +32,7 @@ export type Channel = {
   isPrivate: boolean
   people: string[]
   messages: Message[]
+  currentMessages: Message[]
 }
 
 export type Invite = {
@@ -36,19 +49,13 @@ export type UserKickedFromChannel = {
   kickedTime: string
 }
 
-export type UserStatus = 0 | 1 | 2
-export const userStatuses = {
-  offline: 0,
-  online: 1,
-  dnd: 2,
-} as const
-
 const usersKey = 'serpent-db-users'
 const channelsKey = 'serpent-db-channels'
 const invitesKey = 'serpent-db-invites'
 const kickedUsersKey = 'serpent-db-kicked-users'
 export const backendChangeEvent = 'serpent-backend-change'
 
+// load table from JSON
 function load<T>(key: string): T[] {
   const saved = localStorage.getItem(key)
   if (!saved) return []
@@ -57,59 +64,61 @@ function load<T>(key: string): T[] {
     const data: unknown = JSON.parse(saved)
     return Array.isArray(data) ? (data as T[]) : []
   } catch (error) {
-    console.error(`Could not read temporary backend data from ${key}`, error)
+    console.error(`Could not read data from ${key}`, error)
     return []
   }
 }
 
-function save<T>(key: string, data: T[]) {
+//save table to JSON
+function save<T>(key: string, data: T[]): void {
   localStorage.setItem(key, JSON.stringify(data))
+  // (new data to show) callback simulation
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(backendChangeEvent, { detail: { key } }))
   }
 }
 
+export function getCurNickname(): string | null {
+  return sessionStorage.getItem('serpent-current-user')
+}
+
+function requireSessionUser(): string {
+  const nickname = getCurNickname()
+  if (!nickname) throw new Error('No user is logged in')
+  return nickname
+}
+
 export function createUser(user: Omit<User, 'status' | 'notificationsDirectOnly'>): 0 | 1 | 2 {
   const users = load<User>(usersKey)
+  if (users.some((existing) => existing.email === user.email)) return 1
+  if (users.some((existing) => existing.nickname === user.nickname)) return 2
 
-  if (users.some((existing) => existing.email === user.email)) {
-    return 1
-  }
-
-  if (users.some((existing) => existing.nickname === user.nickname)) {
-    return 2
-  }
-
-  const newUser: User = {
+  users.push({
     ...user,
     status: userStatuses.online,
     notificationsDirectOnly: false,
-  }
-
-  users.push(newUser)
+  })
   save(usersKey, users)
   return 0
 }
 
 export function checkUser(email: string, password: string): User | null {
-  const user = load<User>(usersKey).find(
-    (current) => current.email === email && current.password === password,
+  return (
+    load<User>(usersKey).find(
+      (current) => current.email === email && current.password === password,
+    ) ?? null
   )
-
-  return user ?? null
 }
 
 export function getUser(nickname: string): User | null {
   return load<User>(usersKey).find((user) => user.nickname === nickname) ?? null
 }
 
-export function changeNotificationPreference(nickname: string, directOnly: boolean): User {
+export function changeNotificationPreference(directOnly: boolean): User {
+  const nickname = requireSessionUser()
   const users = load<User>(usersKey)
   const user = users.find((current) => current.nickname === nickname)
-
-  if (!user) {
-    throw new Error(`User "${nickname}" does not exist`)
-  }
+  if (!user) throw new Error(`User "${nickname}" does not exist`)
 
   user.notificationsDirectOnly = directOnly
   save(usersKey, users)
@@ -120,30 +129,25 @@ export function logout(): void {
   sessionStorage.removeItem('serpent-current-user')
 }
 
-export function changeUserStatus(nickname: string, status: UserStatus): User {
-  const users = load<User>(usersKey)
-  const user = users.find((current) => current.nickname === nickname)
-
-  if (!user) {
-    throw new Error(`User "${nickname}" does not exist`)
-  }
-
-  if (
-    status !== userStatuses.offline &&
-    status !== userStatuses.online &&
-    status !== userStatuses.dnd
-  ) {
+export function changeUserStatus(status: UserStatus): User {
+  const nickname = requireSessionUser()
+  if (!Object.values(userStatuses).includes(status)) {
     throw new Error(`Invalid status "${status}"`)
   }
+
+  const users = load<User>(usersKey)
+  const user = users.find((current) => current.nickname === nickname)
+  if (!user) throw new Error(`User "${nickname}" does not exist`)
 
   user.status = status
   save(usersKey, users)
   return user
 }
 
-export function createChannel(owner: string, name: string, isPrivate: boolean): Channel {
+// ! create entry in table channel - will have to add constraint for unique name
+export function createChannel(name: string, isPrivate: boolean): Channel {
+  const owner = requireSessionUser()
   const channels = load<Channel>(channelsKey)
-
   if (channels.some((channel) => channel.name === name)) {
     throw new Error(`Channel "${name}" already exists`)
   }
@@ -154,8 +158,8 @@ export function createChannel(owner: string, name: string, isPrivate: boolean): 
     isPrivate,
     people: [owner],
     messages: [],
+    currentMessages: [],
   }
-
   channels.push(channel)
   save(channelsKey, channels)
   return channel
@@ -163,56 +167,50 @@ export function createChannel(owner: string, name: string, isPrivate: boolean): 
 
 export function getChannels(): Channel[] {
   const saved = localStorage.getItem(channelsKey)
-  const legacySaved = localStorage.getItem('serpent-channels')
-  if (!saved && !legacySaved) return []
+  if (!saved) return []
 
   try {
-    const data: unknown = JSON.parse(saved ?? legacySaved ?? '[]')
+    const data: unknown = JSON.parse(saved)
     if (!Array.isArray(data)) return []
-
-    const channels = data.map((item: unknown): Channel => {
-      const channel = item as Partial<Channel> & {
-        admin?: string
-        status?: 'public' | 'private'
-        members?: string[]
-      }
-
-      return {
-        owner: channel.owner ?? channel.admin ?? '',
-        name: channel.name ?? '',
-        isPrivate: channel.isPrivate ?? channel.status === 'private',
-        people: channel.people ?? channel.members ?? [],
-        messages: channel.messages ?? [],
-      }
-    })
-
-    if (!saved && legacySaved) {
-      localStorage.setItem(channelsKey, JSON.stringify(channels))
-    }
-    return channels
+    return (data as Channel[]).map((channel) => ({
+      ...channel,
+      currentMessages: channel.currentMessages ?? [],
+      messages: channel.messages.map((message) => ({
+        ...message,
+        status: message.status ?? 'sent',
+        readBy: message.readBy ?? [],
+      })),
+    }))
   } catch (error) {
     console.error('Could not read channels from temporary backend', error)
     return []
   }
 }
 
-export function getChannelsForUser(nickname: string): Channel[] {
-  const user = getUser(nickname)
-  if (!user) return []
-
+// get channells that the current user is part of
+export function getChannelsForUser(): Channel[] {
+  const nickname = getCurNickname()
+  if (!nickname) return []
   return getChannels().filter(
     (channel) => channel.owner === nickname || channel.people.includes(nickname),
   )
 }
 
-export function sendMessage(channelName: string, fromUser: string, text: string): Message {
+function isBanned(channel: Channel, nickname: string): boolean {
+  const kicks = getKickedUsers().filter(
+    (item) => item.channel === channel.name && item.user === nickname,
+  )
+  return (
+    kicks.some((item) => item.kickedBy === channel.owner) ||
+    new Set(kicks.map((item) => item.kickedBy)).size >= 3
+  )
+}
+
+export function sendMessage(channelName: string, text: string): Message {
+  const fromUser = requireSessionUser()
   const channels = load<Channel>(channelsKey)
   const channel = channels.find((current) => current.name === channelName)
-
-  if (!channel) {
-    throw new Error(`Channel "${channelName}" does not exist`)
-  }
-
+  if (!channel) throw new Error(`Channel "${channelName}" does not exist`)
   if (!channel.people.includes(fromUser)) {
     throw new Error('User is not a member of this channel')
   }
@@ -221,11 +219,70 @@ export function sendMessage(channelName: string, fromUser: string, text: string)
     kedy: new Date().toISOString(),
     fromUser,
     text,
+    status: 'sending',
+    readBy: [fromUser],
   }
-
   channel.messages.push(message)
   save(channelsKey, channels)
+  message.status = channel.people.length === 1 ? 'read' : 'delivered'
+  save(channelsKey, channels)
   return message
+}
+
+export function updateCurrentMessage(channelName: string, text: string): void {
+  const fromUser = requireSessionUser()
+  const channels = load<Channel>(channelsKey)
+  const channel = channels.find((current) => current.name === channelName)
+  if (!channel) throw new Error(`Channel "${channelName}" does not exist`)
+  if (!channel.people.includes(fromUser)) {
+    throw new Error('User is not a member of this channel')
+  }
+
+  channel.currentMessages = channel.currentMessages ?? []
+  channel.currentMessages = channel.currentMessages.filter(
+    (message) => message.fromUser !== fromUser,
+  )
+
+  if (text.trim()) {
+    channel.currentMessages.push({
+      kedy: new Date().toISOString(),
+      fromUser,
+      text,
+      status: 'sending',
+      readBy: [],
+    })
+  }
+
+  save(channelsKey, channels)
+}
+
+export function getMessages(channelName: string): Message[] {
+  const nickname = requireSessionUser()
+  const channels = getChannels()
+  const channel = channels.find((current) => current.name === channelName)
+  if (!channel) throw new Error(`Channel "${channelName}" does not exist`)
+  if (!channel.people.includes(nickname)) {
+    throw new Error('User is not a member of this channel')
+  }
+
+  let changed = false
+  for (const message of channel.messages) {
+    if (!message.readBy.includes(nickname)) {
+      message.readBy.push(nickname)
+      changed = true
+    }
+    const nextStatus: MessageStatus = channel.people.every((member) =>
+      message.readBy.includes(member),
+    )
+      ? 'read'
+      : 'delivered'
+    if (message.status !== nextStatus) {
+      message.status = nextStatus
+      changed = true
+    }
+  }
+  if (changed) save(channelsKey, channels)
+  return channel.messages
 }
 
 export function destroyChannel(channelName: string): void {
@@ -247,77 +304,57 @@ export function destroyChannel(channelName: string): void {
   )
 }
 
-export function getMessages(channelName: string, nickname: string): Message[] {
-  const channel = load<Channel>(channelsKey).find((current) => current.name === channelName)
-
-  if (!channel) {
-    throw new Error(`Channel "${channelName}" does not exist`)
-  }
-
-  if (!channel.people.includes(nickname)) {
-    throw new Error('User is not a member of this channel')
-  }
-
-  return channel.messages
+// ! invite should be able only if reciever is not in channel
+// ! invite should be able only if reciever is not in channel
+export function getInvites(): Invite[] {
+  return load<Invite>(invitesKey)
 }
 
-export function createInvite(sender: string, receiver: string, channel: string): Invite {
-  const currentChannel = getChannels().find((item) => item.name === channel)
-  if (!currentChannel) {
-    throw new Error(`Channel "${channel}" does not exist`)
-  }
+export function getInvitesForUser(): Invite[] {
+  const nickname = getCurNickname()
+  if (!nickname) return []
+  return getInvites().filter((invite) => invite.receiver === nickname)
+}
 
-  const senderIsMember = currentChannel.people.includes(sender)
+export function createInvite(receiver: string, channelName: string): Invite {
+  const sender = requireSessionUser()
+  const channels = getChannels()
+  const channel = channels.find((item) => item.name === channelName)
+  if (!channel) throw new Error(`Channel "${channelName}" does not exist`)
   const senderCanInvite =
-    senderIsMember && (!currentChannel.isPrivate || currentChannel.owner === sender)
-
+    channel.people.includes(sender) && (!channel.isPrivate || channel.owner === sender)
   if (!senderCanInvite) {
     throw new Error('User is not allowed to invite people to this channel')
   }
-  if (currentChannel.owner === sender) {
-    const remainingKicks = getKickedUsers().filter(
-      (item) => !(item.channel === channel && item.user === receiver),
+
+  if (channel.owner === sender) {
+    save(
+      kickedUsersKey,
+      getKickedUsers().filter((item) => !(item.channel === channelName && item.user === receiver)),
     )
-    save(kickedUsersKey, remainingKicks)
-  } else if (isBanned(currentChannel, receiver)) {
+  } else if (isBanned(channel, receiver)) {
     throw new Error('Prístup môže obnoviť iba správca kanála')
   }
 
-  const invites = load<Invite>(invitesKey)
   const invite: Invite = {
     sender,
     receiver,
-    channel,
+    channel: channelName,
     sendTime: new Date().toISOString(),
   }
-
+  const invites = getInvites()
   invites.push(invite)
   save(invitesKey, invites)
   return invite
 }
 
-export function getInvites(): Invite[] {
-  return load<Invite>(invitesKey)
-}
-
-export function getInvitesForUser(nickname: string): Invite[] {
-  return getInvites().filter((invite) => invite.receiver === nickname)
-}
-
-export function acceptInvite(invite: Invite, nickname: string): Channel {
-  if (invite.receiver !== nickname) {
-    throw new Error('This invite belongs to another user')
-  }
-
+export function acceptInvite(invite: Invite): Channel {
+  const nickname = requireSessionUser()
+  if (invite.receiver !== nickname) throw new Error('This invite belongs to another user')
   const channels = getChannels()
   const channel = channels.find((item) => item.name === invite.channel)
-  if (!channel) {
-    throw new Error(`Channel "${invite.channel}" does not exist`)
-  }
-
-  if (isBanned(channel, nickname)) {
-    throw new Error('Only admin can allow access')
-  }
+  if (!channel) throw new Error(`Channel "${invite.channel}" does not exist`)
+  if (isBanned(channel, nickname)) throw new Error('Only admin can allow access')
 
   const storedInvite = getInvites().some(
     (item) =>
@@ -326,127 +363,84 @@ export function acceptInvite(invite: Invite, nickname: string): Channel {
       item.channel === invite.channel &&
       item.sendTime === invite.sendTime,
   )
-
-  if (!storedInvite) {
-    throw new Error('Invite doesnt exists')
-  }
+  if (!storedInvite) throw new Error('Invite doesnt exists')
 
   if (!channel.people.includes(nickname)) {
     channel.people.push(nickname)
     save(channelsKey, channels)
   }
-
-  const invites = getInvites().filter(
-    (current) =>
-      current.receiver !== invite.receiver ||
-      current.channel !== invite.channel ||
-      current.sender !== invite.sender,
+  save(
+    invitesKey,
+    getInvites().filter(
+      (current) =>
+        current.receiver !== invite.receiver ||
+        current.channel !== invite.channel ||
+        current.sender !== invite.sender,
+    ),
   )
-  save(invitesKey, invites)
   return channel
 }
 
-export function rejectInvite(invite: Invite, nickname: string): void {
-  if (invite.receiver !== nickname) {
-    throw new Error('This invite belongs to another user')
-  }
-
+// rejects invite to channel
+export function rejectInvite(invite: Invite): void {
+  const nickname = requireSessionUser()
+  if (invite.receiver !== nickname) throw new Error('This invite belongs to another user')
   const invites = getInvites()
-  const remainingInvites = invites.filter(
+  const remaining = invites.filter(
     (current) =>
       current.receiver !== invite.receiver ||
       current.channel !== invite.channel ||
       current.sender !== invite.sender ||
       current.sendTime !== invite.sendTime,
   )
-
-  if (remainingInvites.length === invites.length) {
-    throw new Error('Invitation does not exist')
-  }
-
-  save(invitesKey, remainingInvites)
-}
-
-export function kickUserFromChannel(
-  user: string,
-  channel: string,
-  kickedBy: string,
-): UserKickedFromChannel {
-  const channels = getChannels()
-  const currentChannel = channels.find((item) => item.name === channel)
-  if (!currentChannel) {
-    throw new Error(`Channel "${channel}" does not exist`)
-  }
-
-  const canKick =
-    currentChannel.people.includes(kickedBy) &&
-    (!currentChannel.isPrivate || currentChannel.owner === kickedBy)
-  if (!canKick) {
-    throw new Error('User is not allowed to kick people from this channel')
-  }
-
-  if (user === kickedBy) {
-    throw new Error('Cant kick yourself')
-  }
-
-  if (user === currentChannel.owner) {
-    throw new Error('Cant kick admin')
-  }
-
-  const kickedUsers = load<UserKickedFromChannel>(kickedUsersKey)
-  const previousKicks = kickedUsers.filter((item) => item.channel === channel && item.user === user)
-
-  if (!currentChannel.people.includes(user) && previousKicks.length === 0) {
-    throw new Error('The user is not member of this channel')
-  }
-
-  if (previousKicks.some((item) => item.kickedBy === kickedBy)) {
-    throw new Error('U voted to kick this member')
-  }
-  const kick: UserKickedFromChannel = {
-    user,
-    channel,
-    kickedBy,
-    kickedTime: new Date().toISOString(),
-  }
-
-  kickedUsers.push(kick)
-  save(kickedUsersKey, kickedUsers)
-
-  currentChannel.people = currentChannel.people.filter((nickname) => nickname !== user)
-  save(channelsKey, channels)
-
-  return kick
+  if (remaining.length === invites.length) throw new Error('Invitation does not exist')
+  save(invitesKey, remaining)
 }
 
 export function getKickedUsers(): UserKickedFromChannel[] {
   return load<UserKickedFromChannel>(kickedUsersKey)
 }
 
-export function cancelChannel(channelName: string, nickname: string): void {
+export function kickUserFromChannel(user: string, channelName: string): UserKickedFromChannel {
+  const kickedBy = requireSessionUser()
   const channels = getChannels()
   const channel = channels.find((item) => item.name === channelName)
+  if (!channel) throw new Error(`Channel "${channelName}" does not exist`)
+  const canKick =
+    channel.people.includes(kickedBy) && (!channel.isPrivate || channel.owner === kickedBy)
+  if (!canKick) throw new Error('User is not allowed to kick people from this channel')
+  if (user === kickedBy) throw new Error('Cant kick yourself')
+  if (user === channel.owner) throw new Error('Cant kick admin')
 
-  if (!channel) {
-    throw new Error('Channel doesnt exists')
+  const kickedUsers = getKickedUsers()
+  const previousKicks = kickedUsers.filter(
+    (item) => item.channel === channelName && item.user === user,
+  )
+  if (!channel.people.includes(user) && previousKicks.length === 0) {
+    throw new Error('The user is not member of this channel')
+  }
+  if (previousKicks.some((item) => item.kickedBy === kickedBy)) {
+    throw new Error('U voted to kick this member')
   }
 
-  if (channel.owner === nickname) {
-    destroyChannel(channelName)
-    return
+  const kick: UserKickedFromChannel = {
+    user,
+    channel: channelName,
+    kickedBy,
+    kickedTime: new Date().toISOString(),
   }
-
-  if (!channel.people.includes(nickname)) {
-    throw new Error('This user is not member of this channel')
-  }
-
-  channel.people = channel.people.filter((person) => person !== nickname)
+  kickedUsers.push(kick)
+  save(kickedUsersKey, kickedUsers)
+  channel.people = channel.people.filter((nickname) => nickname !== user)
   save(channelsKey, channels)
+  return kick
 }
 
-export function leaveChannel(channelName: string, nickname: string): void {
+export function leaveChannel(channelName: string): void {
+  const nickname = requireSessionUser()
   const channels = getChannels()
   const channel = channels.find((item) => item.name === channelName)
+
   if (!channel) {
     throw new Error(`Channel "${channelName}" does not exist`)
   }
@@ -464,40 +458,16 @@ export function leaveChannel(channelName: string, nickname: string): void {
   save(channelsKey, channels)
 }
 
-export function joinChannel(nickname: string, name: string, isPrivate = false): Channel {
+export function joinChannel(name: string, isPrivate = false): Channel {
+  const nickname = requireSessionUser()
   const channels = getChannels()
   const channel = channels.find((item) => item.name === name)
-
-  if (!channel) {
-    return createChannel(nickname, name, isPrivate)
-  }
-
-  if (isBanned(channel, nickname)) {
-    throw new Error('Forbidden access to this channel')
-  }
-
-  if (channel.people.includes(nickname)) {
-    return channel
-  }
-
-  if (channel.isPrivate) {
-    throw new Error('Need invite to join private channel')
-  }
+  if (!channel) return createChannel(name, isPrivate)
+  if (isBanned(channel, nickname)) throw new Error('Forbidden access to this channel')
+  if (channel.people.includes(nickname)) return channel
+  if (channel.isPrivate) throw new Error('Need invite to join private channel')
 
   channel.people.push(nickname)
   save(channelsKey, channels)
-
   return channel
-}
-
-function isBanned(channel: Channel, nickname: string): boolean {
-  const kicks = getKickedUsers().filter(
-    (item) => item.channel === channel.name && item.user === nickname,
-  )
-
-  const adminBan = kicks.some((item) => item.kickedBy === channel.owner)
-
-  const voters = new Set(kicks.map((item) => item.kickedBy))
-
-  return adminBan || voters.size >= 3
 }

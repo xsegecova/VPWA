@@ -1,4 +1,16 @@
 // app global css
+html,
+body,
+#app,
+.app-layout {
+  min-width: 300px;
+}
+
+#app,
+.app-layout {
+  width: max(100%, 300px);
+}
+
 body.body--dark {
   background: $bg-page;
   color: $text-main;

@@ -1,15 +1,16 @@
 import { computed, ref } from 'vue'
 import {
   acceptInvite as acceptBackendInvite,
-  cancelChannel,
   changeNotificationPreference,
   changeUserStatus,
   getChannelsForUser,
   getInvitesForUser,
   getMessages,
+  updateCurrentMessage,
   getUser,
   kickUserFromChannel,
   leaveChannel,
+  getCurNickname,
   logout as logoutBackend,
   rejectInvite as rejectBackendInvite,
   sendMessage as saveMessage,
@@ -24,36 +25,14 @@ export type MessageMentionMatcher = (text: string, nickname: string) => boolean
 type ChannelState = ReturnType<typeof createChannelState>
 let sharedChannelState: ChannelState | null = null
 
-export function getCurrentNickname(): string | null {
-  return sessionStorage.getItem('serpent-current-user')
-}
-
 export function getCurrentUser() {
-  const nickname = getCurrentNickname()
+  const nickname = getCurNickname()
   return nickname ? getUser(nickname) : null
 }
 
 function getLatestMessageTime(channel: Channel): number {
   const latestMessage = channel.messages[channel.messages.length - 1]
   return latestMessage ? Date.parse(latestMessage.kedy) : 0
-}
-
-function getReadMessages(): Record<string, string> {
-  const nickname = getCurrentNickname()
-  if (!nickname) return {}
-
-  const saved = sessionStorage.getItem(`serpent-read-messages-${nickname}`)
-  if (!saved) return {}
-
-  try {
-    const parsed: unknown = JSON.parse(saved)
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? (parsed as Record<string, string>)
-      : {}
-  } catch (error) {
-    console.error('Could not read message state', error)
-    return {}
-  }
 }
 
 export function useChannel() {
@@ -64,8 +43,8 @@ export function useChannel() {
 }
 
 function createChannelState() {
-  const nickname = getCurrentNickname()
-  const channels = ref<Channel[]>(nickname ? getChannelsForUser(nickname) : [])
+  const nickname = getCurNickname()
+  const channels = ref<Channel[]>(nickname ? getChannelsForUser() : [])
   const invites = ref<Invite[]>([])
   const messages = ref<ReturnType<typeof getMessages>>([])
   const activeChannelName = ref<string | null>(null)
@@ -73,6 +52,8 @@ function createChannelState() {
   const notificationsDirectOnly = ref(false)
   const text = ref('')
   const commandError = ref('')
+  const commandMessage = ref('')
+  const commandMessageType = ref<'success' | 'error'>('success')
   const showChannelInfo = ref(false)
   let loadedUser = nickname
 
@@ -80,7 +61,7 @@ function createChannelState() {
     () => channels.value.find((channel) => channel.name === activeChannelName.value) ?? null,
   )
   const isChannelAdmin = computed(() => {
-    const currentNickname = getCurrentNickname()
+    const currentNickname = getCurNickname()
     return !!currentNickname && activeChannel.value?.owner === currentNickname
   })
   const sortedChannels = computed(() =>
@@ -94,26 +75,17 @@ function createChannelState() {
     return new RegExp(`(^|\\s)@${escapedNickname}(?=\\s|$|[.,!?])`, 'i').test(messageText)
   }
 
-  function markChannelAsRead(channelName: string) {
-    const channel = channels.value.find((item) => item.name === channelName)
-    const latestMessage = channel?.messages[channel.messages.length - 1]
-    const currentNickname = getCurrentNickname()
-    if (!latestMessage || !currentNickname) return
-
-    const readMessages = getReadMessages()
-    readMessages[channelName] = latestMessage.kedy
-    sessionStorage.setItem(`serpent-read-messages-${currentNickname}`, JSON.stringify(readMessages))
-  }
-
   const unreadChannels = computed(() => {
-    const readMessages = getReadMessages()
+    const currentNickname = getCurNickname()
+    if (!currentNickname) return new Set<string>()
+
     return new Set(
       channels.value
         .filter((channel) => {
           const latestMessage = channel.messages[channel.messages.length - 1]
           return (
             latestMessage &&
-            latestMessage.kedy > (readMessages[channel.name] ?? '') &&
+            !latestMessage.readBy.includes(currentNickname) &&
             channel.name !== activeChannelName.value
           )
         })
@@ -122,18 +94,16 @@ function createChannelState() {
   })
 
   const mentionedChannels = computed(() => {
-    const currentNickname = getCurrentNickname()
+    const currentNickname = getCurNickname()
     if (!currentNickname) return new Set<string>()
-    const readMessages = getReadMessages()
 
     return new Set(
       channels.value
         .filter((channel) => channel.name !== activeChannelName.value)
         .filter((channel) => {
-          const readAt = readMessages[channel.name] ?? ''
           return channel.messages.some(
             (message) =>
-              message.kedy > readAt &&
+              !message.readBy.includes(currentNickname) &&
               message.fromUser !== currentNickname &&
               messageMentionsUser(message.text, currentNickname),
           )
@@ -149,30 +119,27 @@ function createChannelState() {
   }
 
   function loadMessages() {
-    const currentNickname = getCurrentNickname()
-    if (
-      !activeChannelName.value ||
-      !currentNickname ||
-      getCurrentUser()?.status === userStatuses.offline
-    ) {
+    const currentNickname = getCurNickname()
+    if (!activeChannelName.value || !currentNickname) {
       messages.value = []
       return
     }
 
-    messages.value = getMessages(activeChannelName.value, currentNickname)
-    markChannelAsRead(activeChannelName.value)
+    if (getCurrentUser()?.status === userStatuses.offline) return
+
+    messages.value = getMessages(activeChannelName.value)
   }
 
   function refreshChannels() {
-    const currentNickname = getCurrentNickname()
+    const currentNickname = getCurNickname()
     if (currentNickname !== loadedUser) {
       activeChannelName.value = null
       messages.value = []
       loadedUser = currentNickname
     }
 
-    channels.value = currentNickname ? getChannelsForUser(currentNickname) : []
-    invites.value = currentNickname ? getInvitesForUser(currentNickname) : []
+    channels.value = currentNickname ? getChannelsForUser() : []
+    invites.value = currentNickname ? getInvitesForUser() : []
     refreshUserState()
 
     if (
@@ -188,7 +155,7 @@ function createChannelState() {
   }
 
   function requireOnlineUser(message: string): string | null {
-    const currentNickname = getCurrentNickname()
+    const currentNickname = getCurNickname()
     if (!currentNickname) return null
     if (getCurrentUser()?.status === userStatuses.offline) {
       commandError.value = message
@@ -197,16 +164,22 @@ function createChannelState() {
     return currentNickname
   }
 
+  function setCurrentMessage(text: string) {
+    if (!activeChannelName.value || !getCurNickname()) return
+    updateCurrentMessage(activeChannelName.value, text)
+    refreshChannels()
+  }
+
   function refresh() {
     refreshChannels()
     loadMessages()
   }
 
   function setUserStatus(status: UserStatus) {
-    const currentNickname = getCurrentNickname()
+    const currentNickname = getCurNickname()
     if (!currentNickname) return
     try {
-      changeUserStatus(currentNickname, status)
+      changeUserStatus(status)
       refresh()
     } catch (error) {
       console.error('Could not change user status', error)
@@ -214,10 +187,10 @@ function createChannelState() {
   }
 
   function setNotificationsDirectOnly(directOnly: boolean) {
-    const currentNickname = getCurrentNickname()
+    const currentNickname = getCurNickname()
     if (!currentNickname) return
     try {
-      changeNotificationPreference(currentNickname, Boolean(directOnly))
+      changeNotificationPreference(Boolean(directOnly))
       refreshUserState()
     } catch (error) {
       console.error('Could not change channel activity preference', error)
@@ -228,7 +201,7 @@ function createChannelState() {
     const currentNickname = requireOnlineUser('You must be online to manage invitations')
     if (!currentNickname) return
     try {
-      acceptBackendInvite(invite, currentNickname)
+      acceptBackendInvite(invite)
       refreshChannels()
       activeChannelName.value = invite.channel
     } catch (error) {
@@ -240,7 +213,7 @@ function createChannelState() {
     const currentNickname = requireOnlineUser('You must be online to manage invitations')
     if (!currentNickname) return
     try {
-      rejectBackendInvite(invite, currentNickname)
+      rejectBackendInvite(invite)
       refreshChannels()
     } catch (error) {
       console.error('Could not reject invite', error)
@@ -248,11 +221,11 @@ function createChannelState() {
   }
 
   function cancelActiveChannel(): boolean {
-    const currentNickname = getCurrentNickname()
+    const currentNickname = getCurNickname()
     const channelName = activeChannelName.value
     if (!currentNickname || !channelName) return false
     try {
-      cancelChannel(channelName, currentNickname)
+      leaveChannel(channelName)
       refreshChannels()
       return true
     } catch (error) {
@@ -263,7 +236,6 @@ function createChannelState() {
 
   function openChannel(name: string) {
     activeChannelName.value = name
-    markChannelAsRead(name)
   }
 
   function logout() {
@@ -285,6 +257,8 @@ function createChannelState() {
     userStatus,
     notificationsDirectOnly,
     commandError,
+    commandMessage,
+    commandMessageType,
     text,
     showChannelInfo,
     sortedChannels,
@@ -295,6 +269,7 @@ function createChannelState() {
     refreshChannels,
     loadMessages,
     requireOnlineUser,
+    setCurrentMessage,
     setUserStatus,
     setNotificationsDirectOnly,
     acceptInvite,

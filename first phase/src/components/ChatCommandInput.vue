@@ -37,6 +37,13 @@
           </q-list>
         </q-menu>
       </q-input>
+      <div
+        v-if="commandMessage"
+        class="terminal-message"
+        :class="`terminal-message--${commandMessageType}`"
+      >
+        {{ commandMessage }}
+      </div>
     </q-toolbar-title>
     <q-btn @click="$emit('send')">Send</q-btn>
   </q-toolbar>
@@ -51,6 +58,8 @@ type Command = {
 defineProps<{
   text: string
   commandError: string
+  commandMessage: string
+  commandMessageType: 'success' | 'error'
   commandIndex: number
   filteredCommands: Command[]
 }>()
@@ -64,3 +73,18 @@ defineEmits<{
   send: []
 }>()
 </script>
+
+<style scoped>
+.terminal-message {
+  margin-top: 4px;
+  font-size: 0.85rem;
+}
+
+.terminal-message--success {
+  color: #a3d977;
+}
+
+.terminal-message--error {
+  color: #e08076;
+}
+</style>
